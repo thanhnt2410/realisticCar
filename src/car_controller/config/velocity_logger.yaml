@@ -1,0 +1,17 @@
+velocity_logger_node:
+  ros__parameters:
+    # New topic contract (schema v2).
+    ground_truth_odom_topic: /simulation/ground_truth/odometry
+    kinematic_state_topic: /localization/kinematic_state
+    longitudinal_reference_topic: /planning/longitudinal_reference
+    longitudinal_cmd_topic: /control/trajectory_follower/longitudinal_cmd
+    acceleration_correction_topic: /control/trajectory_follower/acceleration_correction
+    adaptive_gains_topic: /control/fuzzy_pid/adaptive_gains
+    plant_debug_topic: /simulation/vehicle_dynamics/debug
+
+    log_adaptive_gains: true      # Set true for fuzzy_pid; false for plain pid
+    log_file_path: logs/fuzzy_pid_velocity_log.csv
+    log_rate: 50.0
+    scenario: baseline
+    seed: 1001
+    controller: fuzzy_pid

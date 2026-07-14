@@ -1,0 +1,32 @@
+longitudinal_vehicle_simulator_node:
+  ros__parameters:
+    # Actuator dynamics
+    actuator_delay_s: 0.1          # Command delay [s]
+    actuator_lag_tau_s: 0.15       # First-order lag time constant [s]
+    max_accel: 4.0                 # [m/s^2]
+    min_accel: -3.0                # [m/s^2]
+    max_jerk: 5.0                  # [m/s^3]
+    min_jerk: -5.0                 # [m/s^3]
+
+    # Road / load
+    grade_percent: 0.0             # Road grade [%] – positive uphill
+    rolling_resistance_coeff: 0.01
+    drag_coeff: 0.00025            # Simplified: F_drag/m ≈ drag_coeff * v^2
+    mass_kg: 1800.0
+    gravity: 9.81
+
+    # Noise (set to 0.0 for deterministic baseline)
+    velocity_noise_sigma: 0.0      # Sensor noise std-dev [m/s]
+    process_noise_sigma: 0.0       # Process noise std-dev [m/s^2]
+    random_seed: 1001              # Reproducible RNG seed
+
+    # Step rate (should match or be multiple of controller rate)
+    step_rate_hz: 50.0
+
+    # Topic contract
+    longitudinal_cmd_topic: /control/trajectory_follower/longitudinal_cmd
+    ground_truth_odom_topic: /simulation/ground_truth/odometry
+    kinematic_state_topic: /localization/kinematic_state
+    acceleration_topic: /localization/acceleration
+    gazebo_cmd_vel_topic: /simulation/gazebo_cmd_vel
+    debug_topic: /simulation/vehicle_dynamics/debug

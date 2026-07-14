@@ -1,0 +1,14 @@
+trapezoid_velocity_profile_node:
+  ros__parameters:
+    # New topic: publishes LongitudinalReference (v_ref + a_ref + jerk_ref).
+    longitudinal_reference_topic: /planning/longitudinal_reference
+
+    velocity_points: [0.0, 10.0, 17.0, 17.0, 8.0, 0.0]
+
+    # ramp_duration >= 10 s keeps a_ref <= 1 m/s^2 for a 10 m/s step.
+    # Analytic a_ref = delta_v / ramp_duration (constant per segment).
+    ramp_duration: 5.0
+    hold_duration: 4.0
+    publish_rate: 50.0
+    # Stop advancing the profile and hold its final value.
+    loop: false

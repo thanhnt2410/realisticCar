@@ -1,0 +1,34 @@
+{
+  "created_at": "2026-07-14",
+  "description": "Legacy baseline snapshot before Autoware-style longitudinal control migration",
+  "controller_architecture": "direct_velocity_correction",
+  "csv_schema_version": "legacy_v1",
+  "csv_columns": [
+    "time_sec",
+    "v_ref_mps",
+    "v_actual_mps",
+    "error_mps",
+    "cmd_vel_linear_x_mps",
+    "(optional) adaptive_kp, adaptive_ki, adaptive_kd, controller_error_mps, controller_error_derivative_mps2, control_u_mps, control_up_mps, control_ui_mps, control_ud_mps"
+  ],
+  "notes": [
+    "cmd_vel = target_velocity + velocity_correction [m/s]",
+    "No separate plant; Gazebo DiffDrive is ideal velocity servo",
+    "Controller gains produce velocity correction, NOT acceleration correction",
+    "Gain units: Kp [dimensionless], Ki [s], Kd [s^-1] (velocity output)",
+    "Do NOT mix legacy CSV with new architecture CSV in statistics"
+  ],
+  "legacy_log_files": [
+    "logs/fuzzy_pid_velocity_log_001.csv",
+    "logs/fuzzy_pid_velocity_log_002.csv",
+    "logs/fuzzy_pid_velocity_log_003.csv",
+    "logs/pid_velocity_log_001.csv",
+    "logs/pid_velocity_log_002.csv",
+    "logs/pid_velocity_log_003.csv"
+  ],
+  "planning_output_topic": "/planning/target_velocity",
+  "planning_msg_type": "std_msgs/msg/Float64",
+  "controller_output_topic": "/cmd_vel",
+  "controller_msg_type": "geometry_msgs/msg/Twist",
+  "new_architecture_start": "Phase 1 – car_control_msgs package"
+}

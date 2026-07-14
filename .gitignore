@@ -1,0 +1,38 @@
+# ROS 2 / colcon build artifacts
+/build/
+/install/
+/log/
+
+# Generated simulation and controller results (keep scripts/manifests)
+/logs/**/*.csv
+/logs/**/*.png
+
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# MATLAB/Simulink temporary files
+*.asv
+*.autosave
+*.m~
+slprj/
+*.slxc
+
+# Editor and local agent settings
+.vscode/
+.idea/
+.codex/
+.agents/
+*~
+*.swp
+*.swo
+
+# OS and temporary lock files
+.DS_Store
+Thumbs.db
+.~lock.*#

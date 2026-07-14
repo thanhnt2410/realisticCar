@@ -1,0 +1,15 @@
+velocity_logger_node:
+  ros__parameters:
+    ground_truth_odom_topic: /simulation/ground_truth/odometry
+    kinematic_state_topic: /localization/kinematic_state
+    longitudinal_reference_topic: /planning/longitudinal_reference
+    longitudinal_cmd_topic: /control/trajectory_follower/longitudinal_cmd
+    acceleration_correction_topic: /control/trajectory_follower/acceleration_correction
+    plant_debug_topic: /simulation/vehicle_dynamics/debug
+
+    log_adaptive_gains: false     # PID does not publish adaptive gains
+    log_file_path: logs/pid_velocity_log.csv
+    log_rate: 50.0
+    scenario: baseline
+    seed: 1001
+    controller: pid

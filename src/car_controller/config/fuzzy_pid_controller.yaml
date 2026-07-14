@@ -1,0 +1,36 @@
+# Shared parameters for both PID and Fuzzy PID longitudinal controllers.
+# Gains are in acceleration-correction units (NOT legacy velocity-correction units):
+#   Kp [1/s], Ki [1/s^2], Kd [dimensionless]
+
+velocity_controller_common:
+  ros__parameters:
+    # Base PID gains (acceleration correction output [m/s^2]).
+    kp: 1.10
+    ki: 0.12
+    kd: 0.5
+
+    # Topic contract.
+    longitudinal_reference_topic: /planning/longitudinal_reference
+    odom_topic: /localization/kinematic_state
+    longitudinal_cmd_topic: /control/trajectory_follower/longitudinal_cmd
+    acceleration_correction_topic: /control/trajectory_follower/acceleration_correction
+
+    # Output limits.
+    max_acceleration_correction: 4.0   # [m/s^2] clamp on feedback correction
+    min_target_acceleration: -3.0      # [m/s^2]
+    max_target_acceleration: 4.0       # [m/s^2]
+    min_jerk: -5.0                     # [m/s^3]
+    max_jerk:  5.0                     # [m/s^3]
+
+    # Integrator and derivative filter.
+    max_integral_error: 5.0            # [m*s]
+    derivative_filter_alpha: 0.2       # EMA coefficient (0=off, 1=raw)
+
+    control_period_ms: 20.0
+
+fuzzy_pid_controller_node:
+  ros__parameters:
+    adaptive_gains_topic: /control/fuzzy_pid/adaptive_gains
+    fuzzy_error_gain: 0.2
+    fuzzy_error_derivative_gain: 0.05
+    fuzzy_kd_min_ratio: 0.5
