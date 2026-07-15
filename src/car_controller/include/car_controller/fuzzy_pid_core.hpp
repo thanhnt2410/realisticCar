@@ -163,7 +163,7 @@ private:
     fuzzy_error_change_input_ = nde;
     const auto me = fuzzify(ne);
     const auto md = fuzzify(nde);
-
+#if 0
     constexpr RuleTable kp_rules {{
       {{PB, PB, PM, PM, PS, ZO, ZO}},
       {{PB, PB, PM, PS, PS, ZO, NS}},
@@ -191,7 +191,35 @@ private:
       {{PB, NS, PS, PS, PS, PS, PB}},
       {{PB, PM, PM, PM, PS, PS, PM}},
     }};
+#endif
+    constexpr RuleTable kp_rules {{
+      {{PB, PB, PB, PM, PS, ZO, NS}},
+      {{PB, PB, PM, PS, ZO, NS, NM}},
+      {{PM, PM, PS, PS, ZO, NS, NM}},
+      {{PS, PS, ZO, ZO, ZO, PS, PS}},
+      {{NM, NS, ZO, PS, PS, PM, PM}},
+      {{NM, NS, ZO, PS, PM, PB, PB}},
+      {{NS, ZO, PS, PM, PB, PB, PB}},
+    }};
+    constexpr RuleTable ki_rules {{
+      {{NB, NB, NB, NM, NM, NS, ZO}},
+      {{NB, NB, NM, NM, NS, ZO, ZO}},
+      {{NM, NM, NS, ZO, PS, PS, ZO}},
+      {{NS, ZO, PS, PB, PS, ZO, NS}},
+      {{ZO, PS, PS, ZO, NS, NM, NM}},
+      {{ZO, ZO, NS, NM, NM, NB, NB}},
+      {{ZO, NS, NM, NM, NB, NB, NB}},
+    }};
 
+    constexpr RuleTable kd_rules {{
+      {{PB, PB, PM, PM, PS, ZO, NS}},
+      {{PB, PB, PM, PS, ZO, NS, NM}},
+      {{PM, PM, PS, ZO, NS, NM, NM}},
+      {{PS, PS, ZO, NM, ZO, PS, PS}},
+      {{NM, NM, NS, ZO, PS, PM, PM}},
+      {{NM, NS, ZO, PS, PM, PB, PB}},
+      {{NS, ZO, PS, PM, PM, PB, PB}},
+    }};
     double sum_kp = 0.0, sum_ki = 0.0, sum_kd = 0.0, w_sum = 0.0;
     for (std::size_t i = 0; i < 7; ++i) {
       for (std::size_t j = 0; j < 7; ++j) {
