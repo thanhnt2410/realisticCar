@@ -89,9 +89,10 @@ public:
     gazebo_vel_pub_ = create_publisher<geometry_msgs::msg::Twist>(gazebo_vel_topic, 10);
     debug_pub_ = create_publisher<std_msgs::msg::Float64MultiArray>(debug_topic, 10);
 
-    step_timer_ = create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double>(dt_)),
+    step_timer_ = rclcpp::create_timer(
+      this, get_clock(),
+      rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::duration<double>(dt_))),
       std::bind(&LongitudinalVehicleSimulator::stepLoop, this));
 
     RCLCPP_INFO(

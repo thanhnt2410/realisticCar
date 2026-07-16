@@ -196,8 +196,9 @@ public:
     }
 
     const auto period = std::chrono::duration<double>(1.0 / log_rate_);
-    timer_ = create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(period),
+    timer_ = rclcpp::create_timer(
+      this, get_clock(),
+      rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
       std::bind(&VelocityLogger::writeSample, this));
 
     RCLCPP_INFO(get_logger(), "Logging to %s (schema v2)", log_file_path_.c_str());

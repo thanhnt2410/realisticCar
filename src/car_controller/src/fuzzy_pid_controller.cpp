@@ -101,9 +101,10 @@ public:
     adaptive_gains_pub_ =
       create_publisher<std_msgs::msg::Float64MultiArray>(gains_topic, 10);
 
-    control_loop_ = create_wall_timer(
-      std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<double, std::milli>(control_period_ms_)),
+    control_loop_ = rclcpp::create_timer(
+      this, get_clock(),
+      rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::duration<double, std::milli>(control_period_ms_))),
       std::bind(&FuzzyPidController::controlLoop, this));
 
     last_cycle_time_ = get_clock()->now();

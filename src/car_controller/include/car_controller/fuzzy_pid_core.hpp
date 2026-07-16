@@ -55,7 +55,7 @@ public:
     fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.02 / 3.0 : 0.0;
     fuzzy_kd_gain_ = params_.kd * 0.07 / 3.0;
 #elif TUNING
-    fuzzy_kp_gain_ = params_.kp * 0.8 / 3.0;
+    fuzzy_kp_gain_ = params_.kp * 0.3 / 3.0;
     fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.1 / 3.0 : 0.0;
     fuzzy_kd_gain_ = params_.kd * 0.35 / 3.0;
 #endif
@@ -172,15 +172,25 @@ private:
     fuzzy_error_change_input_ = nde;
     const auto me = fuzzify(ne);
     const auto md = fuzzify(nde);
-
+    // E <0; EC < 0; E(t) * EC(t) > 0 => Sai số đi xa hơn => tăng Kp, giảm Ki, tăng Kd
+    // constexpr RuleTable kp_rules {{
+    //   {{PB, PB, PM, PM, PS, ZO, ZO}},
+    //   {{PB, PB, PM, PS, PS, ZO, NS}},
+    //   {{PM, PM, PM, PS, ZO, NS, NS}},
+    //   {{PM, PM, PS, ZO, NS, NM, NM}},
+    //   {{PS, PS, ZO, NS, NS, NM, NM}},
+    //   {{PS, ZO, NS, NM, NM, NM, NB}},
+    //   {{ZO, ZO, NM, NM, NM, NB, NB}},
+    // }};
     constexpr RuleTable kp_rules {{
-      {{PB, PB, PM, PM, PS, ZO, ZO}},
-      {{PB, PB, PM, PS, PS, ZO, NS}},
-      {{PM, PM, PM, PS, ZO, NS, NS}},
-      {{PM, PM, PS, ZO, NS, NM, NM}},
-      {{PS, PS, ZO, NS, NS, NM, NM}},
-      {{PS, ZO, NS, NM, NM, NM, NB}},
-      {{ZO, ZO, NM, NM, NM, NB, NB}},
+      // de:  NB  NM  NS  ZO  PS  PM  PB
+      {{PB, PB, PM, PM, PS, ZO, ZO}},  // e = NB
+      {{PB, PB, PM, PS, PS, ZO, NS}},  // e = NM
+      {{PM, PM, PM, PS, ZO, NS, NS}},  // e = NS
+      {{PM, PM, PS, ZO, PS, PM, PM}},  // e = ZO
+      {{NS, NS, ZO, PS, PM, PM, PM}},  // e = PS
+      {{NS, ZO, PS, PS, PM, PB, PB}},  // e = PM
+      {{ZO, ZO, PS, PM, PM, PB, PB}},  // e = PB
     }};
     constexpr RuleTable ki_rules {{
       {{NS, NS, NS, NS, ZO, ZO, ZO}},
@@ -191,14 +201,24 @@ private:
       {{ZO, PS, PS, PM, PM, PM, PB}},
       {{ZO, PS, PM, PM, PB, PB, PB}},
     }};
+    // constexpr RuleTable kd_rules {{
+    //   {{PS, NS, NB, NB, NB, NM, PS}},  // e = NB
+    //   {{PS, NS, NB, NM, NM, NS, ZO}},  // e = NM
+    //   {{ZO, NS, NM, NM, NS, NS, ZO}},  // e = NS
+    //   {{ZO, NS, NS, NS, NS, NS, ZO}},  // e = ZO
+    //   {{ZO, ZO, ZO, ZO, ZO, ZO, ZO}},  // e = PS
+    //   {{PB, NS, PS, PS, PS, PS, PB}},  // e = PM
+    //   {{PB, PM, PM, PM, PS, PS, PM}},  // e = PB
+    // }};
     constexpr RuleTable kd_rules {{
-      {{PS, NS, NB, NB, NB, NM, PS}},
-      {{PS, NS, NB, NM, NM, NS, ZO}},
-      {{ZO, NS, NM, NM, NS, NS, ZO}},
-      {{ZO, NS, NS, NS, NS, NS, ZO}},
-      {{ZO, ZO, ZO, ZO, ZO, ZO, ZO}},
-      {{PB, NS, PS, PS, PS, PS, PB}},
-      {{PB, PM, PM, PM, PS, PS, PM}},
+      // de:  NB  NM  NS  ZO  PS  PM  PB
+      {{PB, PM, PS, ZO, NS, NM, NB}},  // e = NB
+      {{PM, PM, PS, ZO, NS, NM, NM}},  // e = NM
+      {{PS, PS, PS, ZO, NS, NS, NS}},  // e = NS
+      {{ZO, ZO, ZO, ZO, ZO, ZO, ZO}},  // e = ZO
+      {{NS, NS, NS, ZO, PS, PS, PS}},  // e = PS
+      {{NM, NM, NS, ZO, PS, PM, PM}},  // e = PM
+      {{NB, NM, NS, ZO, PS, PM, PB}},  // e = PB
     }};
 
     double sum_kp = 0.0, sum_ki = 0.0, sum_kd = 0.0, w_sum = 0.0;

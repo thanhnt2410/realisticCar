@@ -14,6 +14,7 @@ struct LongitudinalProfileCoreParams
 {
   std::vector<double> velocity_points{0.0, 0.3, 0.1, 0.2, 0.0};
   double ramp_duration = 3.0;
+  double acceleration_ramp_duration = 0.5;
   double hold_duration = 5.0;
   bool loop = false;
 };
@@ -30,14 +31,17 @@ public:
       params_.velocity_points = {0.0, 0.3, 0.1, 0.2, 0.0};
     }
     params_.ramp_duration = std::max(params_.ramp_duration, 0.001);
+    params_.acceleration_ramp_duration = std::clamp(
+      params_.acceleration_ramp_duration, 1e-6, 0.5 * params_.ramp_duration);
     params_.hold_duration = std::max(params_.hold_duration, 0.0);
   }
 
-  /// Compute reference velocity and acceleration analytically.
+  /// Compute a jerk-limited S-curve reference analytically.
   void calculateReference(
     double elapsed_time,
     double & velocity,
     double & acceleration,
+    double & jerk,
     bool & is_defined_acceleration) const
   {
     const double segment_duration = params_.ramp_duration + params_.hold_duration;
@@ -47,6 +51,7 @@ public:
     if (profile_duration <= 0.0) {
       velocity = params_.velocity_points.back();
       acceleration = 0.0;
+      jerk = 0.0;
       is_defined_acceleration = true;
       return;
     }
@@ -57,6 +62,7 @@ public:
     } else if (elapsed_time >= profile_duration) {
       velocity = params_.velocity_points.back();
       acceleration = 0.0;
+      jerk = 0.0;
       is_defined_acceleration = true;
       return;
     }
@@ -74,15 +80,40 @@ public:
     const double delta_velocity = end_velocity - start_velocity;
 
     if (segment_time < params_.ramp_duration) {
-      // Ramp phase: constant acceleration.
-      const double alpha = segment_time / params_.ramp_duration;
-      velocity = start_velocity + alpha * delta_velocity;
-      acceleration = delta_velocity / params_.ramp_duration;
+      // Symmetric S-curve: ramp acceleration up, hold it, then ramp it down.
+      // The area under this trapezoidal acceleration is exactly delta_velocity.
+      const double ramp_time = params_.acceleration_ramp_duration;
+      const double peak_acceleration =
+        delta_velocity / (params_.ramp_duration - ramp_time);
+      const double jerk_magnitude = peak_acceleration / ramp_time;
+      const double deceleration_start = params_.ramp_duration - ramp_time;
+
+      if (segment_time < ramp_time) {
+        jerk = jerk_magnitude;
+        acceleration = jerk * segment_time;
+        velocity = start_velocity + 0.5 * jerk * segment_time * segment_time;
+      } else if (segment_time < deceleration_start) {
+        const double constant_acceleration_time = segment_time - ramp_time;
+        jerk = 0.0;
+        acceleration = peak_acceleration;
+        velocity = start_velocity + 0.5 * peak_acceleration * ramp_time +
+          peak_acceleration * constant_acceleration_time;
+      } else {
+        const double ramp_down_time = segment_time - deceleration_start;
+        jerk = -jerk_magnitude;
+        acceleration = peak_acceleration + jerk * ramp_down_time;
+        const double ramp_down_start_velocity = start_velocity +
+          peak_acceleration * (params_.ramp_duration - 1.5 * ramp_time);
+        velocity = ramp_down_start_velocity +
+          peak_acceleration * ramp_down_time +
+          0.5 * jerk * ramp_down_time * ramp_down_time;
+      }
       is_defined_acceleration = true;
     } else {
       // Hold phase: zero acceleration.
       velocity = end_velocity;
       acceleration = 0.0;
+      jerk = 0.0;
       is_defined_acceleration = true;
     }
   }
