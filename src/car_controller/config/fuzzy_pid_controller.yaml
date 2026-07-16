@@ -33,4 +33,3 @@ fuzzy_pid_controller_node:
     adaptive_gains_topic: /control/fuzzy_pid/adaptive_gains
     fuzzy_error_gain: 1.0
     fuzzy_error_derivative_gain: 0.5
-    fuzzy_kd_min_ratio: 0.5

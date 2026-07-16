@@ -16,7 +16,12 @@ FuzzyPidCore::Params make_params()
   p.kd = 0.0;
   p.fuzzy_error_gain = 0.8;
   p.fuzzy_error_derivative_gain = 0.5;
-  p.fuzzy_kd_min_ratio = 0.5;
+  p.kp_min = 0.7;
+  p.kp_max = 2.0;
+  p.ki_min = 0.0;
+  p.ki_max = 0.2;
+  p.kd_min = 0.0;
+  p.kd_max = 0.1;
   p.max_integral_error = 10.0;
   p.max_output = 5.0;
   p.derivative_filter_alpha = 1.0;
@@ -100,12 +105,12 @@ TEST(FuzzyPidCore, AdaptiveGainBounds)
   for (int i = 0; i < 50; ++i) {
     fpid.update(3.0, 0.02);
   }
-  EXPECT_GE(fpid.adaptive_kp(), 0.7 * p.kp);
-  EXPECT_LE(fpid.adaptive_kp(), 2.0 * p.kp);
-  EXPECT_GE(fpid.adaptive_ki(), 0.0);
-  EXPECT_LE(fpid.adaptive_ki(), 2.0 * p.ki);
-  EXPECT_GE(fpid.adaptive_kd(), p.fuzzy_kd_min_ratio * p.kd);
-  EXPECT_LE(fpid.adaptive_kd(), 2.0 * p.kd);
+  EXPECT_GE(fpid.adaptive_kp(), p.kp_min);
+  EXPECT_LE(fpid.adaptive_kp(), p.kp_max);
+  EXPECT_GE(fpid.adaptive_ki(), p.ki_min);
+  EXPECT_LE(fpid.adaptive_ki(), p.ki_max);
+  EXPECT_GE(fpid.adaptive_kd(), p.kd_min);
+  EXPECT_LE(fpid.adaptive_kd(), p.kd_max);
 }
 
 TEST(FuzzyPidCore, OutputUnitAcceleration)
@@ -114,10 +119,41 @@ TEST(FuzzyPidCore, OutputUnitAcceleration)
   FuzzyPidCore::Params p = make_params();
   p.kp = 2.0;
   p.max_output = 100.0;
-  // Force zero fuzzy adjustment: zero gains so adaptive == base.
-  p.fuzzy_error_gain = 0.0;
+  // Fix all fuzzy gain ranges so the selected gains are deterministic.
+  p.kp_min = p.kp_max = 2.0;
+  p.ki_min = p.ki_max = 0.0;
+  p.kd_min = p.kd_max = 0.0;
   FuzzyPidCore fpid(p);
   const double out = fpid.update(3.0, 0.02);
   // P-only with Kp=2, error=3 → 6 m/s^2
-  EXPECT_NEAR(out, 6.0, 0.5);  // fuzzy may shift slightly
+  EXPECT_NEAR(out, 6.0, 1e-9);
+}
+
+TEST(FuzzyPidCore, PaperTableCenterRuleSetsDirectGains)
+{
+  FuzzyPidCore::Params p = make_params();
+  p.kp_min = 1.0; p.kp_max = 7.0;
+  p.ki_min = 2.0; p.ki_max = 8.0;
+  p.kd_min = 3.0; p.kd_max = 9.0;
+  FuzzyPidCore fpid(p);
+  fpid.update(0.0, 0.02);  // e=Z, de=Z => S / VS / B
+  EXPECT_NEAR(fpid.adaptive_kp(), 2.0, 1e-9);
+  EXPECT_NEAR(fpid.adaptive_ki(), 2.0, 1e-9);
+  EXPECT_NEAR(fpid.adaptive_kd(), 8.0, 1e-9);
+}
+
+TEST(FuzzyPidCore, GainsDoNotAccumulateBetweenCycles)
+{
+  FuzzyPidCore::Params p = make_params();
+  FuzzyPidCore fpid(p);
+  fpid.update(0.0, 0.02);
+  const double kp = fpid.adaptive_kp();
+  const double ki = fpid.adaptive_ki();
+  const double kd = fpid.adaptive_kd();
+  for (int i = 0; i < 20; ++i) {
+    fpid.update(0.0, 0.02);
+  }
+  EXPECT_DOUBLE_EQ(fpid.adaptive_kp(), kp);
+  EXPECT_DOUBLE_EQ(fpid.adaptive_ki(), ki);
+  EXPECT_DOUBLE_EQ(fpid.adaptive_kd(), kd);
 }

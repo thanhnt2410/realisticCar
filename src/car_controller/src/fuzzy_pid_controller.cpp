@@ -45,8 +45,14 @@ public:
     fp_params.fuzzy_error_gain = declare_parameter<double>("fuzzy_error_gain", 0.8);
     fp_params.fuzzy_error_derivative_gain =
       declare_parameter<double>("fuzzy_error_derivative_gain", 0.5);
-    fp_params.fuzzy_kd_min_ratio =
-      std::clamp(declare_parameter<double>("fuzzy_kd_min_ratio", 0.5), 0.0, 1.0);
+    // JMST.7 gain ranges derived from the nominal PID gains. They are internal
+    // implementation details rather than independent tuning parameters.
+    fp_params.kp_min = 0.0;
+    fp_params.kp_max = 2.0 * fp_params.kp;
+    fp_params.ki_min = 0.0;
+    fp_params.ki_max = 2.0 * fp_params.ki;
+    fp_params.kd_min = 0.0;
+    fp_params.kd_max = 2.0 * fp_params.kd;
     fp_params.max_integral_error = declare_parameter<double>("max_integral_error", 5.0);
     fp_params.max_output = declare_parameter<double>("max_acceleration_correction", 2.0);
     fp_params.derivative_filter_alpha =
