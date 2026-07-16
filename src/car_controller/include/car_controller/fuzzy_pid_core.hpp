@@ -7,8 +7,8 @@
 #include <chrono>
 #include <cmath>
 
-#define ADAPTIVE 1
-#define TUNING 0
+#define ADAPTIVE 0
+#define TUNING 1
 
 namespace car_controller
 {
@@ -55,7 +55,7 @@ public:
     fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.02 / 3.0 : 0.0;
     fuzzy_kd_gain_ = params_.kd * 0.07 / 3.0;
 #elif TUNING
-    fuzzy_kp_gain_ = params_.kp * 0.5 / 3.0;
+    fuzzy_kp_gain_ = params_.kp * 0.8 / 3.0;
     fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.1 / 3.0 : 0.0;
     fuzzy_kd_gain_ = params_.kd * 0.35 / 3.0;
 #endif
@@ -186,7 +186,6 @@ private:
       {{NS, NS, NS, NS, ZO, ZO, ZO}},
       {{NS, NS, NS, ZO, ZO, PS, PS}},
       {{NS, NS, ZO, ZO, PS, PS, PS}},
-      // {{NS, ZO, ZO, ZO, PS, PS, PM}},
       {{NM, NM, NS, ZO, PS, PM, PM}},
       {{ZO, ZO, PS, PS, PS, PM, PM}},
       {{ZO, PS, PS, PM, PM, PM, PB}},

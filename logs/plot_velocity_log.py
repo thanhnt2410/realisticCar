@@ -18,6 +18,7 @@ def read_velocity_log(path):
     v_actual = []
     v_measured = []
     error = []
+    controller_output = []
     target_acceleration = []
     applied_acceleration = []
     adaptive_kp = []
@@ -27,9 +28,6 @@ def read_velocity_log(path):
     fuzzy_error_change_ec = []
     fuzzy_normalized_error_e = []
     fuzzy_normalized_error_change_ec = []
-    p_term = []
-    i_term = []
-    d_term = []
     grade_percent = []
 
     with path.open("r", newline="") as csv_file:
@@ -40,6 +38,7 @@ def read_velocity_log(path):
             "target_velocity_mps",
             "true_velocity_mps",
             "true_velocity_error_mps",
+            "acceleration_correction_mps2",
             "target_acceleration_mps2",
             "applied_acceleration_mps2",
         }
@@ -50,8 +49,6 @@ def read_velocity_log(path):
 
         gain_columns = {"adaptive_kp", "adaptive_ki", "adaptive_kd"}
         has_adaptive_gains = gain_columns.issubset(reader.fieldnames or [])
-        pid_terms_columns = {"p_term_mps2", "i_term_mps2", "d_term_mps2"}
-        has_pid_terms = pid_terms_columns.issubset(reader.fieldnames or [])
         has_measured_vel = "measured_velocity_mps" in (reader.fieldnames or [])
         has_grade = "grade_percent" in (reader.fieldnames or [])
         has_fuzzy_inputs = {
@@ -73,6 +70,7 @@ def read_velocity_log(path):
             v_ref.append(float(row["target_velocity_mps"]))
             v_actual.append(float(row["true_velocity_mps"]))
             error.append(float(row["true_velocity_error_mps"]))
+            controller_output.append(float(row["acceleration_correction_mps2"]))
             target_acceleration.append(float(row["target_acceleration_mps2"]))
             applied_acceleration.append(float(row["applied_acceleration_mps2"]))
 
@@ -104,11 +102,6 @@ def read_velocity_log(path):
                     float(row["fuzzy_normalized_error_change_ec"])
                 )
 
-            if has_pid_terms:
-                p_term.append(float(row["p_term_mps2"]))
-                i_term.append(float(row["i_term_mps2"]))
-                d_term.append(float(row["d_term_mps2"]))
-
     if not time_sec:
         raise RuntimeError(f"No samples found in {path}")
 
@@ -121,6 +114,7 @@ def read_velocity_log(path):
         "v_actual": v_actual,
         "v_measured": v_measured,
         "error": error,
+        "controller_output": controller_output,
         "target_acceleration": target_acceleration,
         "applied_acceleration": applied_acceleration,
         "adaptive_kp": adaptive_kp,
@@ -130,9 +124,6 @@ def read_velocity_log(path):
         "fuzzy_error_change_ec": fuzzy_error_change_ec,
         "fuzzy_normalized_error_e": fuzzy_normalized_error_e,
         "fuzzy_normalized_error_change_ec": fuzzy_normalized_error_change_ec,
-        "p_term": p_term,
-        "i_term": i_term,
-        "d_term": d_term,
         "grade_percent": grade_percent,
     }
 
@@ -302,9 +293,8 @@ def plot_velocity_logs(
 
     # Plot gains if present
     if fuzzy["adaptive_kp"]:
-        has_pid_terms = bool(fuzzy["p_term"])
         has_fuzzy_inputs = bool(fuzzy["fuzzy_error_e"]) and bool(fuzzy["fuzzy_error_change_ec"])
-        subplot_count = 1 + int(has_fuzzy_inputs) + int(has_pid_terms)
+        subplot_count = 2 + int(has_fuzzy_inputs)
         gains_fig, gains_axes = plt.subplots(
             subplot_count, 1, sharex=True, figsize=(12, 3.8 * subplot_count)
         )
@@ -383,39 +373,34 @@ def plot_velocity_logs(
 
             next_axis += 1
 
-        if has_pid_terms:
-            control_axis = gains_axes[next_axis]
-            control_series = (
-                ("p_term", "P_term", "tab:blue", 1.5),
-                ("i_term", "I_term", "tab:orange", 1.5),
-                ("d_term", "D_term", "tab:purple", 1.5),
-            )
-            for key, label, color, linewidth in control_series:
-                control_axis.plot(
-                    fuzzy["time_sec"],
-                    fuzzy[key],
-                    label=label,
-                    color=color,
-                    linewidth=linewidth,
-                )
-            control_axis.plot(
-                fuzzy["time_sec"],
-                fuzzy["target_acceleration"],
-                label="target_accel",
-                color="tab:green",
-                linewidth=2.0,
-                alpha=0.7,
-            )
-            control_axis.axhline(0.0, color="black", linewidth=1.0, alpha=0.5)
-            control_axis.set_ylabel("Acceleration Terms (m/s²)")
-            control_axis.set_xlabel("Time (s)")
-            control_axis.grid(True, alpha=0.3)
-            control_axis.legend(loc="best")
+        output_axis = gains_axes[next_axis]
+        output_axis.plot(
+            fuzzy["time_sec"],
+            fuzzy["controller_output"],
+            label="fuzzy_pid_output_u",
+            color="tab:green",
+            linewidth=2.0,
+        )
+        output_axis.plot(
+            pid["time_sec"],
+            pid["controller_output"],
+            label="pid_output_u",
+            color="tab:olive",
+            linewidth=2.0,
+            linestyle="--",
+        )
+        output_axis.axhline(0.0, color="black", linewidth=1.0, alpha=0.5)
+        output_axis.set_ylabel("Controller output u (m/s²)")
+        output_axis.set_xlabel("Time (s)")
+        output_axis.grid(True, alpha=0.3)
+        output_axis.legend(loc="best")
 
         gains_axes[-1].set_xlabel("Time (s)")
         for axis in gains_axes:
             axis.tick_params(axis="x", labelbottom=True)
-        gains_fig.suptitle(f"Fuzzy PID Adaptive Gains and Terms (Scenario: {scenario})")
+        gains_fig.suptitle(
+            f"Fuzzy PID Adaptive Gains and Controller Outputs (Scenario: {scenario})"
+        )
         gains_fig.tight_layout()
         gains_fig.savefig(gains_output_path, dpi=150, bbox_inches="tight")
         print(f"Saved adaptive gains plot to {gains_output_path}")
