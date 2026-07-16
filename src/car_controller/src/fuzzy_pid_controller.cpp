@@ -3,11 +3,11 @@
 // Fuzzy PID velocity controller node – Autoware-style longitudinal control.
 //
 // Subscribes:
-//   /planning/longitudinal_reference  (car_control_msgs/LongitudinalReference)
+//   /planning/longitudinal_reference  (car_msgs/LongitudinalReference)
 //   /localization/kinematic_state     (nav_msgs/Odometry – noisy/measured)
 //
 // Publishes:
-//   /control/trajectory_follower/longitudinal_cmd         (car_control_msgs/Longitudinal)
+//   /control/trajectory_follower/longitudinal_cmd         (car_msgs/Longitudinal)
 //   /control/trajectory_follower/acceleration_correction  (std_msgs/Float64, debug)
 //   /control/fuzzy_pid/adaptive_gains                     (std_msgs/Float64MultiArray, debug)
 //
@@ -19,8 +19,8 @@
 #include <cmath>
 #include <string>
 
-#include "car_control_msgs/msg/longitudinal.hpp"
-#include "car_control_msgs/msg/longitudinal_reference.hpp"
+#include "car_msgs/msg/longitudinal.hpp"
+#include "car_msgs/msg/longitudinal_reference.hpp"
 #include "car_controller/fuzzy_pid_core.hpp"
 #include "car_controller/longitudinal_limits.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -81,9 +81,9 @@ public:
     limiter_ = std::make_unique<car_controller::LongitudinalLimits>(lim_params);
 
     reference_sub_ =
-      create_subscription<car_control_msgs::msg::LongitudinalReference>(
+      create_subscription<car_msgs::msg::LongitudinalReference>(
       ref_topic, 10,
-      [this](const car_control_msgs::msg::LongitudinalReference::SharedPtr msg) {
+      [this](const car_msgs::msg::LongitudinalReference::SharedPtr msg) {
         reference_ = *msg;
         has_reference_ = true;
       });
@@ -96,7 +96,7 @@ public:
       });
 
     longitudinal_cmd_pub_ =
-      create_publisher<car_control_msgs::msg::Longitudinal>(cmd_topic, 10);
+      create_publisher<car_msgs::msg::Longitudinal>(cmd_topic, 10);
     correction_pub_ = create_publisher<std_msgs::msg::Float64>(correction_topic, 10);
     adaptive_gains_pub_ =
       create_publisher<std_msgs::msg::Float64MultiArray>(gains_topic, 10);
@@ -149,7 +149,7 @@ private:
     limiter_->apply(a_ref, raw_correction, dt, a_correction_out, a_unlimited, a_target, jerk_out);
 
     // --- Publish longitudinal command ---
-    car_control_msgs::msg::Longitudinal cmd_msg;
+    car_msgs::msg::Longitudinal cmd_msg;
     cmd_msg.stamp = now;
     cmd_msg.control_time = now;
     cmd_msg.velocity = v_ref;
@@ -199,9 +199,9 @@ private:
     last_cycle_time_ = now;
   }
 
-  rclcpp::Subscription<car_control_msgs::msg::LongitudinalReference>::SharedPtr reference_sub_;
+  rclcpp::Subscription<car_msgs::msg::LongitudinalReference>::SharedPtr reference_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-  rclcpp::Publisher<car_control_msgs::msg::Longitudinal>::SharedPtr longitudinal_cmd_pub_;
+  rclcpp::Publisher<car_msgs::msg::Longitudinal>::SharedPtr longitudinal_cmd_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr correction_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr adaptive_gains_pub_;
   rclcpp::TimerBase::SharedPtr control_loop_;
@@ -210,7 +210,7 @@ private:
   std::unique_ptr<car_controller::FuzzyPidCore> fuzzy_pid_;
   std::unique_ptr<car_controller::LongitudinalLimits> limiter_;
 
-  car_control_msgs::msg::LongitudinalReference reference_{};
+  car_msgs::msg::LongitudinalReference reference_{};
   double measured_velocity_{0.0};
   double control_period_ms_{20.0};
   bool has_reference_{false};

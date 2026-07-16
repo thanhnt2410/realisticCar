@@ -27,6 +27,8 @@ def load_node_parameters(config_file, node_name):
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
+    vehicle_backend = LaunchConfiguration("vehicle_backend")
+    scenario = LaunchConfiguration("scenario")
     car_controller_share = get_package_share_directory("car_controller")
     workspace_root = get_workspace_root(car_controller_share)
     fuzzy_pid_config_file = os.path.join(
@@ -62,11 +64,23 @@ def generate_launch_description():
             {
                 "log_file_path": str(workspace_root / "logs" / "fuzzy_pid_velocity_log.csv"),
                 "use_sim_time": use_sim_time,
+                "vehicle_backend": vehicle_backend,
+                "scenario": scenario,
             },
         ],
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument(
+            "vehicle_backend",
+            default_value="longitudinal_sim",
+            description="Vehicle backend recorded in the CSV log",
+        ),
+        DeclareLaunchArgument(
+            "scenario",
+            default_value="baseline",
+            description="Scenario label recorded in the CSV log",
+        ),
         DeclareLaunchArgument(
             "use_sim_time",
             default_value="false",

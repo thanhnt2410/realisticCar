@@ -6,8 +6,8 @@
 //   /simulation/vehicle_dynamics/debug   (std_msgs/Float64MultiArray) – plant step
 //   /simulation/ground_truth/odometry    (nav_msgs/Odometry)          – true velocity
 //   /localization/kinematic_state        (nav_msgs/Odometry)          – measured velocity
-//   /planning/longitudinal_reference     (car_control_msgs/LongitudinalReference)
-//   /control/trajectory_follower/longitudinal_cmd (car_control_msgs/Longitudinal)
+//   /planning/longitudinal_reference     (car_msgs/LongitudinalReference)
+//   /control/trajectory_follower/longitudinal_cmd (car_msgs/Longitudinal)
 //   /control/trajectory_follower/acceleration_correction (std_msgs/Float64)
 //   /control/fuzzy_pid/adaptive_gains    (std_msgs/Float64MultiArray) – optional
 //
@@ -18,7 +18,7 @@
 //   true_velocity_error_mps, controller_velocity_error_mps,
 //   acceleration_correction_mps2,
 //   unlimited_target_acceleration_mps2, target_acceleration_mps2,
-//   applied_acceleration_mps2, jerk_mps3, cmd_vel_mps,
+//   applied_acceleration_mps2, jerk_mps3, left_wheel_torque_nm, right_wheel_torque_nm,
 //   grade_percent, grade_acceleration_mps2,
 //   drag_acceleration_mps2, rolling_acceleration_mps2,
 //   process_disturbance_acceleration_mps2,
@@ -37,8 +37,8 @@
 #include <memory>
 #include <string>
 
-#include "car_control_msgs/msg/longitudinal.hpp"
-#include "car_control_msgs/msg/longitudinal_reference.hpp"
+#include "car_msgs/msg/longitudinal.hpp"
+#include "car_msgs/msg/longitudinal_reference.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -57,6 +57,9 @@ public:
     scenario_ = declare_parameter<std::string>("scenario", "baseline");
     seed_ = declare_parameter<int>("seed", 1001);
     controller_name_ = declare_parameter<std::string>("controller", "fuzzy_pid");
+    vehicle_backend_ = declare_parameter<std::string>("vehicle_backend", "longitudinal_sim");
+    correction_saturation_threshold_ = declare_parameter<double>(
+      "correction_saturation_threshold", 2.0);
     log_adaptive_gains_ = declare_parameter<bool>("log_adaptive_gains", false);
 
     log_rate_ = std::max(log_rate_, 1.0);
@@ -76,6 +79,10 @@ public:
       "adaptive_gains_topic", "/control/fuzzy_pid/adaptive_gains");
     const std::string plant_debug_topic = declare_parameter<std::string>(
       "plant_debug_topic", "/simulation/vehicle_dynamics/debug");
+    const std::string left_effort_topic = declare_parameter<std::string>(
+      "left_effort_topic", "/rear_wheel_effort/left");
+    const std::string right_effort_topic = declare_parameter<std::string>(
+      "right_effort_topic", "/rear_wheel_effort/right");
 
     // ---- Open log file ----
     const std::filesystem::path log_path(log_file_path_);
@@ -94,7 +101,14 @@ public:
     gt_odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
       gt_odom_topic, 10,
       [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+        const auto stamp = rclcpp::Time(msg->header.stamp);
+        if (has_true_velocity_ && stamp > last_ground_truth_stamp_) {
+          applied_acceleration_from_odom_ =
+          (msg->twist.twist.linear.x - true_velocity_) /
+          (stamp - last_ground_truth_stamp_).seconds();
+        }
         true_velocity_ = msg->twist.twist.linear.x;
+        last_ground_truth_stamp_ = stamp;
         has_true_velocity_ = true;
       });
 
@@ -105,17 +119,17 @@ public:
         has_measured_velocity_ = true;
       });
 
-    ref_sub_ = create_subscription<car_control_msgs::msg::LongitudinalReference>(
+    ref_sub_ = create_subscription<car_msgs::msg::LongitudinalReference>(
       ref_topic, 10,
-      [this](const car_control_msgs::msg::LongitudinalReference::SharedPtr msg) {
+      [this](const car_msgs::msg::LongitudinalReference::SharedPtr msg) {
         v_ref_ = static_cast<double>(msg->velocity);
         a_ref_ = static_cast<double>(msg->acceleration);
         has_reference_ = true;
       });
 
-    cmd_sub_ = create_subscription<car_control_msgs::msg::Longitudinal>(
+    cmd_sub_ = create_subscription<car_msgs::msg::Longitudinal>(
       cmd_topic, 10,
-      [this](const car_control_msgs::msg::Longitudinal::SharedPtr msg) {
+      [this](const car_msgs::msg::Longitudinal::SharedPtr msg) {
         target_acceleration_ = static_cast<double>(msg->acceleration);
         jerk_ = static_cast<double>(msg->jerk);
         has_cmd_ = true;
@@ -143,6 +157,13 @@ public:
           has_plant_debug_ = true;
         }
       });
+
+    left_effort_sub_ = create_subscription<std_msgs::msg::Float64>(
+      left_effort_topic, 10,
+      [this](const std_msgs::msg::Float64::SharedPtr msg) {left_wheel_torque_ = msg->data;});
+    right_effort_sub_ = create_subscription<std_msgs::msg::Float64>(
+      right_effort_topic, 10,
+      [this](const std_msgs::msg::Float64::SharedPtr msg) {right_wheel_torque_ = msg->data;});
 
     if (log_adaptive_gains_) {
       adaptive_gains_sub_ = create_subscription<std_msgs::msg::Float64MultiArray>(
@@ -194,13 +215,14 @@ private:
   void writeHeader()
   {
     log_file_ <<
-      "time_sec,sim_step,scenario,seed,controller,"
+      "time_sec,sim_step,scenario,seed,controller,vehicle_backend,"
       "target_velocity_mps,reference_acceleration_mps2,"
       "true_velocity_mps,measured_velocity_mps,"
       "true_velocity_error_mps,controller_velocity_error_mps,"
       "acceleration_correction_mps2,"
       "unlimited_target_acceleration_mps2,target_acceleration_mps2,"
-      "applied_acceleration_mps2,jerk_mps3,cmd_vel_mps,"
+      "applied_acceleration_mps2,jerk_mps3,"
+      "left_wheel_torque_nm,right_wheel_torque_nm,"
       "grade_percent,grade_acceleration_mps2,"
       "drag_acceleration_mps2,rolling_acceleration_mps2,"
       "process_disturbance_acceleration_mps2,"
@@ -230,7 +252,7 @@ private:
     const double true_error = v_ref_ - true_velocity_;
     const double ctrl_error = v_ref_ - measured_velocity_;
     const bool saturated = has_correction_ &&
-      std::abs(acceleration_correction_) >= 1.99;  // near max_acceleration_correction
+      std::abs(acceleration_correction_) >= correction_saturation_threshold_;
 
     log_file_
       << time_sec << ','
@@ -238,6 +260,7 @@ private:
       << scenario_ << ','
       << seed_ << ','
       << controller_name_ << ','
+      << vehicle_backend_ << ','
       << v_ref_ << ','
       << a_ref_ << ','
       << true_velocity_ << ','
@@ -247,9 +270,10 @@ private:
       << (has_correction_ ? acceleration_correction_ : 0.0) << ','
       << unlimited_target_acceleration_ << ','
       << (has_cmd_ ? target_acceleration_ : 0.0) << ','
-      << (has_plant_debug_ ? applied_acceleration_ : 0.0) << ','
+      << (has_plant_debug_ ? applied_acceleration_ : applied_acceleration_from_odom_) << ','
       << (has_cmd_ ? jerk_ : 0.0) << ','
-      << (has_cmd_ ? target_acceleration_ : 0.0) << ','  // cmd_vel_mps = target_acc (proxy)
+      << left_wheel_torque_ << ','
+      << right_wheel_torque_ << ','
       << grade_percent_ << ','
       << (has_plant_debug_ ? grade_acceleration_ : 0.0) << ','
       << (has_plant_debug_ ? drag_acceleration_ : 0.0) << ','
@@ -274,20 +298,25 @@ private:
   // Subscriptions
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr gt_odom_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr kin_state_sub_;
-  rclcpp::Subscription<car_control_msgs::msg::LongitudinalReference>::SharedPtr ref_sub_;
-  rclcpp::Subscription<car_control_msgs::msg::Longitudinal>::SharedPtr cmd_sub_;
+  rclcpp::Subscription<car_msgs::msg::LongitudinalReference>::SharedPtr ref_sub_;
+  rclcpp::Subscription<car_msgs::msg::Longitudinal>::SharedPtr cmd_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr correction_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr plant_debug_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr left_effort_sub_;
+  rclcpp::Subscription<std_msgs::msg::Float64>::SharedPtr right_effort_sub_;
   rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr adaptive_gains_sub_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Time start_time_;
+  rclcpp::Time last_ground_truth_stamp_;
 
   std::ofstream log_file_;
   std::string log_file_path_;
   std::string scenario_;
   std::string controller_name_;
+  std::string vehicle_backend_;
   int seed_{1001};
   double log_rate_{50.0};
+  double correction_saturation_threshold_{2.0};
   bool log_adaptive_gains_{false};
   bool logging_started_{false};
   uint64_t sim_step_{0};
@@ -300,6 +329,8 @@ private:
   double target_acceleration_{0.0};
   double jerk_{0.0};
   double applied_acceleration_{0.0};
+  double applied_acceleration_from_odom_{0.0};
+  double left_wheel_torque_{0.0}, right_wheel_torque_{0.0};
   double grade_percent_{0.0};
   double grade_acceleration_{0.0};
   double drag_acceleration_{0.0};

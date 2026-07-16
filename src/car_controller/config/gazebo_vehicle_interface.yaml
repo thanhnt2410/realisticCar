@@ -1,0 +1,11 @@
+gazebo_vehicle_interface:
+  ros__parameters:
+    use_sim_time: true
+    effective_mass_kg: 1450.0
+    wheel_radius_m: 0.31265
+    max_acceleration_mps2: 3.0
+    max_wheel_torque_nm: 800.0
+    command_timeout_sec: 0.25
+    input_topic: /control/trajectory_follower/longitudinal_cmd
+    left_effort_topic: /rear_wheel_effort/left
+    right_effort_topic: /rear_wheel_effort/right

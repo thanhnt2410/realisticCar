@@ -3,7 +3,7 @@
 // Longitudinal Vehicle Simulator node.
 //
 // Subscribes:
-//   /control/trajectory_follower/longitudinal_cmd  (car_control_msgs/Longitudinal)
+//   /control/trajectory_follower/longitudinal_cmd  (car_msgs/Longitudinal)
 //
 // Publishes:
 //   /simulation/ground_truth/odometry   (nav_msgs/Odometry)  – true state, NO noise
@@ -18,7 +18,7 @@
 #include <random>
 #include <string>
 
-#include "car_control_msgs/msg/longitudinal.hpp"
+#include "car_msgs/msg/longitudinal.hpp"
 #include "car_controller/longitudinal_vehicle_model.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -76,9 +76,9 @@ public:
     const std::string debug_topic = declare_parameter<std::string>(
       "debug_topic", "/simulation/vehicle_dynamics/debug");
 
-    cmd_sub_ = create_subscription<car_control_msgs::msg::Longitudinal>(
+    cmd_sub_ = create_subscription<car_msgs::msg::Longitudinal>(
       cmd_topic, 10,
-      [this](const car_control_msgs::msg::Longitudinal::SharedPtr msg) {
+      [this](const car_msgs::msg::Longitudinal::SharedPtr msg) {
         latest_cmd_accel_ = static_cast<double>(msg->acceleration);
         has_cmd_ = true;
       });
@@ -167,7 +167,7 @@ private:
     debug_pub_->publish(dbg_msg);
   }
 
-  rclcpp::Subscription<car_control_msgs::msg::Longitudinal>::SharedPtr cmd_sub_;
+  rclcpp::Subscription<car_msgs::msg::Longitudinal>::SharedPtr cmd_sub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr gt_odom_pub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr kin_state_pub_;
   rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr accel_pub_;

@@ -7,6 +7,9 @@
 #include <chrono>
 #include <cmath>
 
+#define ADAPTIVE 1
+#define TUNING 0
+
 namespace car_controller
 {
 
@@ -47,9 +50,15 @@ public:
     adaptive_kd_(params.kd),
     has_prev_error_(false)
   {
+#if ADAPTIVE
+    fuzzy_kp_gain_ = params_.kp * 0.1 / 3.0;
+    fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.02 / 3.0 : 0.0;
+    fuzzy_kd_gain_ = params_.kd * 0.07 / 3.0;
+#elif TUNING
     fuzzy_kp_gain_ = params_.kp * 0.5 / 3.0;
     fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.1 / 3.0 : 0.0;
     fuzzy_kd_gain_ = params_.kd * 0.35 / 3.0;
+#endif
   }
 
   double update(double error, double dt)
@@ -186,7 +195,7 @@ private:
       {{PS, NS, NB, NB, NB, NM, PS}},
       {{PS, NS, NB, NM, NM, NS, ZO}},
       {{ZO, NS, NM, NM, NS, NS, ZO}},
-      {{ZO, NS, NS, NS, NS, NS, ZO}},
+      {{ZO, NS, NS, ZO, NS, NS, ZO}},
       {{ZO, ZO, ZO, ZO, ZO, ZO, ZO}},
       {{PB, NS, PS, PS, PS, PS, PB}},
       {{PB, PM, PM, PM, PS, PS, PM}},
@@ -210,16 +219,7 @@ private:
         std::chrono::duration<double, std::micro>(inference_end - inference_start).count();
       return;
     }
-
-    // adaptive_kp_ = std::clamp(
-    //   params_.kp + fuzzy_kp_gain_ * sum_kp / w_sum,
-    //   0.7 * params_.kp, 2.0 * params_.kp);
-    // adaptive_ki_ = std::clamp(
-    //   params_.ki + fuzzy_ki_gain_ * sum_ki / w_sum,
-    //   0.0, 2.0 * params_.ki);
-    // adaptive_kd_ = std::clamp(
-    //   params_.kd + fuzzy_kd_gain_ * sum_kd / w_sum,
-    //   params_.fuzzy_kd_min_ratio * params_.kd, 2.0 * params_.kd);
+#if ADAPTIVE
     adaptive_kp_ = std::clamp(
       adaptive_kp_ + fuzzy_kp_gain_ * sum_kp / w_sum,
       0.7 * params_.kp, 2.0 * params_.kp);
@@ -229,7 +229,14 @@ private:
     adaptive_kd_ = std::clamp(
       adaptive_kd_ + fuzzy_kd_gain_ * sum_kd / w_sum,
       params_.fuzzy_kd_min_ratio * params_.kd, 2.0 * params_.kd);
-
+#elif TUNING
+    adaptive_kp_ = std::clamp(
+      params_.kp + fuzzy_kp_gain_ * sum_kp / w_sum, 0.7 * params_.kp, 2.0 * params_.kp);
+    adaptive_ki_ = std::clamp(
+      params_.ki + fuzzy_ki_gain_ * sum_ki / w_sum, 0.0, 2.0 * params_.ki);
+    adaptive_kd_ = std::clamp(
+      params_.kd + fuzzy_kd_gain_ * sum_kd / w_sum, params_.fuzzy_kd_min_ratio * params_.kd, 2.0 * params_.kd);
+#endif
     const auto inference_end = std::chrono::steady_clock::now();
     fuzzy_inference_duration_us_ =
       std::chrono::duration<double, std::micro>(inference_end - inference_start).count();

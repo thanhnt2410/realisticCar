@@ -9,13 +9,13 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(car_control_msgs REQUIRED)
+find_package(car_msgs REQUIRED)
 
 add_executable(trapezoid_velocity_profile src/trapezoid_velocity_profile.cpp)
 ament_target_dependencies(trapezoid_velocity_profile
   rclcpp
   std_msgs
-  car_control_msgs
+  car_msgs
 )
 target_compile_features(trapezoid_velocity_profile PUBLIC cxx_std_17)
 target_include_directories(trapezoid_velocity_profile PRIVATE include)

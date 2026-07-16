@@ -5,7 +5,7 @@
 velocity_controller_common:
   ros__parameters:
     # Base PID gains (acceleration correction output [m/s^2]).
-    kp: 1.10
+    kp: 1.2
     ki: 0.12
     kd: 0.5
 
@@ -19,7 +19,7 @@ velocity_controller_common:
     max_acceleration_correction: 4.0   # [m/s^2] clamp on feedback correction
     min_target_acceleration: -3.0      # [m/s^2]
     max_target_acceleration: 4.0       # [m/s^2]
-    min_jerk: -5.0                     # [m/s^3]
+    min_jerk: -8.0                     # [m/s^3]
     max_jerk:  5.0                     # [m/s^3]
 
     # Integrator and derivative filter.
@@ -31,6 +31,6 @@ velocity_controller_common:
 fuzzy_pid_controller_node:
   ros__parameters:
     adaptive_gains_topic: /control/fuzzy_pid/adaptive_gains
-    fuzzy_error_gain: 0.2
-    fuzzy_error_derivative_gain: 0.05
+    fuzzy_error_gain: 1.0
+    fuzzy_error_derivative_gain: 0.5
     fuzzy_kd_min_ratio: 0.5

@@ -3,7 +3,7 @@ trapezoid_velocity_profile_node:
     # New topic: publishes LongitudinalReference (v_ref + a_ref + jerk_ref).
     longitudinal_reference_topic: /planning/longitudinal_reference
 
-    velocity_points: [0.0, 10.0, 17.0, 17.0, 8.0, 0.0]
+    velocity_points: [0.0, 12.0, 7.0, 17.0, 8.0, 0.0]
 
     # ramp_duration >= 10 s keeps a_ref <= 1 m/s^2 for a 10 m/s step.
     # Analytic a_ref = delta_v / ramp_duration (constant per segment).

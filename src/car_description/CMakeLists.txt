@@ -1,18 +1,19 @@
 cmake_minimum_required(VERSION 3.5)
 project(car_description)
 
-
 find_package(ament_cmake REQUIRED)
-find_package(urdf REQUIRED)
+find_package(xacro REQUIRED)
+
+ament_environment_hooks("${CMAKE_CURRENT_SOURCE_DIR}/env-hooks/gazebo_envs.sh.in")
+
 
 install(
-  DIRECTORY launch meshes models photos urdf rviz worlds
+  DIRECTORY meshes urdf
   DESTINATION share/${PROJECT_NAME}
 )
 
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  ament_lint_auto_find_test_dependencies()
-endif()
+install(FILES model.config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()

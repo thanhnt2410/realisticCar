@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "builtin_interfaces/msg/time.hpp"
-#include "car_control_msgs/msg/longitudinal_reference.hpp"
+#include "car_msgs/msg/longitudinal_reference.hpp"
 #include "car_planning/longitudinal_profile_core.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -47,7 +47,7 @@ public:
     core_ = std::make_unique<car_planning::LongitudinalProfileCore>(core_params);
 
     longitudinal_reference_pub_ =
-      create_publisher<car_control_msgs::msg::LongitudinalReference>(
+      create_publisher<car_msgs::msg::LongitudinalReference>(
       longitudinal_reference_topic_, 10);
 
     const auto period = std::chrono::duration<double>(1.0 / publish_rate_);
@@ -79,7 +79,7 @@ private:
 
     core_->calculateReference(elapsed_time, velocity, acceleration, is_defined_acceleration);
 
-    car_control_msgs::msg::LongitudinalReference msg;
+    car_msgs::msg::LongitudinalReference msg;
     msg.stamp = current_time;
     msg.velocity = static_cast<float>(velocity);
     msg.acceleration = static_cast<float>(acceleration);
@@ -91,7 +91,7 @@ private:
   }
 
   std::unique_ptr<car_planning::LongitudinalProfileCore> core_;
-  rclcpp::Publisher<car_control_msgs::msg::LongitudinalReference>::SharedPtr
+  rclcpp::Publisher<car_msgs::msg::LongitudinalReference>::SharedPtr
     longitudinal_reference_pub_;
   rclcpp::TimerBase::SharedPtr timer_;
   rclcpp::Time start_time_;

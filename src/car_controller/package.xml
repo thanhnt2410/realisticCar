@@ -16,7 +16,7 @@
   <depend>std_msgs</depend>
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
-  <depend>car_control_msgs</depend>
+  <depend>car_msgs</depend>
 
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>controller_manager</exec_depend>
@@ -24,8 +24,6 @@
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>car_planning</exec_depend>
-  <exec_depend>ros_gz_bridge</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

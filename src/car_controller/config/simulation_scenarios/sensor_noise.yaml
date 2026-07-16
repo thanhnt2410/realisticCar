@@ -17,3 +17,10 @@ longitudinal_vehicle_simulator_node:
     process_noise_sigma: 0.05       # [m/s^2] process noise std-dev
     random_seed: 1001               # overridden by runner per paired run
     step_rate_hz: 50.0
+
+# Gazebo effort backend: add noise only to controller feedback. Ground-truth
+# odometry remains noise-free for evaluation in velocity_logger.
+odometry_adapter:
+  ros__parameters:
+    velocity_noise_sigma: 0.05      # [m/s]
+    random_seed: 1001               # overridden by runner per paired run

@@ -15,7 +15,8 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(Eigen3 REQUIRED)
-find_package(car_control_msgs REQUIRED)
+find_package(car_msgs REQUIRED)
+find_package(gz-sim8 REQUIRED)
 
 include_directories(include)
 
@@ -27,7 +28,7 @@ set(dependencies
   std_msgs
   tf2
   tf2_ros
-  car_control_msgs
+  car_msgs
 )
 
 # --- Longitudinal controllers (new Autoware-style) ---
@@ -40,6 +41,17 @@ ament_target_dependencies(pid_velocity_controller ${dependencies})
 # --- Longitudinal vehicle simulator (new plant) ---
 add_executable(longitudinal_vehicle_simulator src/longitudinal_vehicle_simulator.cpp)
 ament_target_dependencies(longitudinal_vehicle_simulator ${dependencies})
+
+add_executable(gazebo_vehicle_interface src/gazebo_vehicle_interface.cpp)
+ament_target_dependencies(gazebo_vehicle_interface ${dependencies})
+
+add_executable(odometry_adapter src/odometry_adapter.cpp)
+ament_target_dependencies(odometry_adapter ${dependencies})
+
+# Generic Gazebo Sim 8 effort layer with an independent command watchdog.
+add_library(rear_wheel_effort_system SHARED src/rear_wheel_effort_system.cpp)
+target_link_libraries(rear_wheel_effort_system gz-sim8::gz-sim8)
+target_compile_features(rear_wheel_effort_system PUBLIC cxx_std_17)
 
 # --- Legacy / utility nodes (kept for smoke test / diagnostics) ---
 add_executable(simple_controller src/simple_controller.cpp)
@@ -56,6 +68,8 @@ foreach(target
   fuzzy_pid_controller
   pid_velocity_controller
   longitudinal_vehicle_simulator
+  gazebo_vehicle_interface
+  odometry_adapter
   simple_controller
   noisy_controller
   velocity_logger
@@ -74,13 +88,18 @@ install(TARGETS
   fuzzy_pid_controller
   pid_velocity_controller
   longitudinal_vehicle_simulator
+  gazebo_vehicle_interface
+  odometry_adapter
   simple_controller
   noisy_controller
   velocity_logger
   DESTINATION lib/${PROJECT_NAME})
 
+install(TARGETS rear_wheel_effort_system
+  LIBRARY DESTINATION lib)
+
 install(
-  DIRECTORY config launch worlds
+  DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -107,6 +126,14 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_seeded_noise test/test_seeded_noise.cpp)
   target_include_directories(test_seeded_noise PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+
+  ament_add_gtest(test_gazebo_effort_core test/test_gazebo_effort_core.cpp)
+  target_include_directories(test_gazebo_effort_core PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+
+  ament_add_gtest(test_odometry_adapter_core test/test_odometry_adapter_core.cpp)
+  target_include_directories(test_odometry_adapter_core PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 
   # --- Integration tests ---

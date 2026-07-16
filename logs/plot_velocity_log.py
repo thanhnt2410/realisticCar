@@ -75,12 +75,12 @@ def read_velocity_log(path):
             error.append(float(row["true_velocity_error_mps"]))
             target_acceleration.append(float(row["target_acceleration_mps2"]))
             applied_acceleration.append(float(row["applied_acceleration_mps2"]))
-            
+
             if has_measured_vel:
                 v_measured.append(float(row["measured_velocity_mps"]))
             else:
                 v_measured.append(float(row["true_velocity_mps"]))
-                
+
             if has_grade:
                 grade_percent.append(float(row["grade_percent"]))
 
@@ -103,7 +103,7 @@ def read_velocity_log(path):
                 fuzzy_normalized_error_change_ec.append(
                     float(row["fuzzy_normalized_error_change_ec"])
                 )
-            
+
             if has_pid_terms:
                 p_term.append(float(row["p_term_mps2"]))
                 i_term.append(float(row["i_term_mps2"]))
@@ -154,8 +154,9 @@ def estimate_derivative(time_sec, values):
 
 def normalize_time(data):
     start_time = data["time_sec"][0]
-    # Align runs dynamically based on v_ref changing
-    if data["v_ref"] and data["v_ref"][0] < 1.0:
+    # Infer the profile origin from the first rising reference segment. This
+    # also handles logs whose logger joined after v_ref had already exceeded 1 m/s.
+    if data["v_ref"]:
         for index in range(1, len(data["time_sec"])):
             dt = data["time_sec"][index] - data["time_sec"][index - 1]
             dv = data["v_ref"][index] - data["v_ref"][index - 1]
@@ -210,7 +211,11 @@ def plot_velocity_logs(
         linewidth=2.0,
     )
     # If sensor noise is present, plot measured velocity faintly
-    if any(abs(fuzzy["v_actual"][i] - fuzzy["v_measured"][i]) > 1e-3 for i in range(len(fuzzy["v_actual"]))):
+    has_sensor_noise = any(
+        abs(actual - measured) > 1e-3
+        for actual, measured in zip(fuzzy["v_actual"], fuzzy["v_measured"])
+    )
+    if has_sensor_noise:
         axes[0].plot(
             fuzzy["time_sec"],
             fuzzy["v_measured"],
@@ -269,11 +274,17 @@ def plot_velocity_logs(
     )
     axes[2].axhline(0.0, color="black", linewidth=1.0, alpha=0.5)
     set_symmetric_ylim(axes[2], fuzzy["error"], pid["error"])
-    
+
     # If there is grade variation, plot it on secondary axis
     if any(abs(g) > 1e-3 for g in fuzzy["grade_percent"]):
         ax2_grade = axes[2].twinx()
-        ax2_grade.plot(fuzzy["time_sec"], fuzzy["grade_percent"], color="black", alpha=0.2, linestyle="-.")
+        ax2_grade.plot(
+            fuzzy["time_sec"],
+            fuzzy["grade_percent"],
+            color="black",
+            alpha=0.2,
+            linestyle="-.",
+        )
         ax2_grade.set_ylabel("Grade (%)", color="black", alpha=0.5)
         ax2_grade.tick_params(axis="y", labelcolor="gray")
 
@@ -417,13 +428,21 @@ def plot_velocity_logs(
             plt.close(gains_fig)
 
 
-def indexed_path(path, scenario, seed):
-    return path.with_name(f"{path.stem}_{scenario}_{seed}{path.suffix}")
+def indexed_path(path, vehicle_model, scenario, seed):
+    return path.with_name(
+        f"{path.stem}_{vehicle_model}_{scenario}_{seed}{path.suffix}"
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Plot fuzzy PID and PID velocity tracking CSV logs."
+    )
+    parser.add_argument(
+        "--vehicle-model",
+        choices=("longitudinal_sim", "gazebo_effort"),
+        default="gazebo_effort",
+        help="Vehicle backend used to name the logs (default: gazebo_effort)",
     )
     parser.add_argument(
         "--scenario",
@@ -432,11 +451,16 @@ def main():
         help="Scenario to plot (e.g. baseline, grade_step). Default: baseline",
     )
     parser.add_argument(
-        "--seeds",
+        "--runs",
         type=int,
-        nargs="+",
-        default=[1001],
-        help="List of random seeds to plot (default: 1001)",
+        default=1,
+        help="Number of paired simulation runs to plot (default: 1)",
+    )
+    parser.add_argument(
+        "--base-seed",
+        type=int,
+        default=1001,
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--fuzzy",
@@ -465,6 +489,11 @@ def main():
     )
     args = parser.parse_args()
 
+    if args.runs <= 0:
+        parser.error("--runs must be a positive integer")
+    if args.base_seed < 0:
+        parser.error("--base-seed must be non-negative")
+
     fuzzy_path = Path(args.fuzzy).expanduser()
     pid_path = Path(args.pid).expanduser()
     output_path = Path(args.output).expanduser()
@@ -478,16 +507,23 @@ def main():
         ) from exc
 
     plotted_count = 0
-    for seed in args.seeds:
-        indexed_fuzzy = indexed_path(fuzzy_path, args.scenario, seed)
-        indexed_pid = indexed_path(pid_path, args.scenario, seed)
-        indexed_output = indexed_path(output_path, args.scenario, seed)
-        indexed_gains_output = indexed_path(gains_output_path, args.scenario, seed)
-        
+    seeds = [args.base_seed + run_index for run_index in range(args.runs)]
+    for seed in seeds:
+        indexed_fuzzy = indexed_path(
+            fuzzy_path, args.vehicle_model, args.scenario, seed
+        )
+        indexed_pid = indexed_path(pid_path, args.vehicle_model, args.scenario, seed)
+        indexed_output = indexed_path(
+            output_path, args.vehicle_model, args.scenario, seed
+        )
+        indexed_gains_output = indexed_path(
+            gains_output_path, args.vehicle_model, args.scenario, seed
+        )
+
         if not indexed_fuzzy.exists() or not indexed_pid.exists():
             print(f"Skipping seed {seed} as logs were not found.")
             continue
-            
+
         indexed_output.parent.mkdir(parents=True, exist_ok=True)
         indexed_gains_output.parent.mkdir(parents=True, exist_ok=True)
         plot_velocity_logs(
@@ -497,10 +533,10 @@ def main():
             indexed_gains_output,
             False,
             plt,
-            scenario=f"{args.scenario} (seed {seed})"
+            scenario=f"{args.scenario}, {args.vehicle_model} (seed {seed})",
         )
         plotted_count += 1
-        
+
     if plotted_count > 0 and args.show:
         plt.show()
     print(f"Created plots for {plotted_count} simulation pair(s).")
