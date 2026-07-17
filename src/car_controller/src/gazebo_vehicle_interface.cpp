@@ -32,7 +32,9 @@ public:
     right_publisher_ = create_publisher<std_msgs::msg::Float64>(right_output, 10);
     subscription_ = create_subscription<car_msgs::msg::Longitudinal>(
       input, 10, std::bind(&GazeboVehicleInterface::onCommand, this, std::placeholders::_1));
-    timer_ = create_wall_timer(20ms, std::bind(&GazeboVehicleInterface::watchdog, this));
+    timer_ = rclcpp::create_timer(
+      this, get_clock(), rclcpp::Duration(20ms),
+      std::bind(&GazeboVehicleInterface::watchdog, this));
     publishEffort(0.0);
   }
 

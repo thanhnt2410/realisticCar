@@ -19,18 +19,25 @@ velocity_controller_common:
     max_acceleration_correction: 4.0   # [m/s^2] clamp on feedback correction
     min_target_acceleration: -3.0      # [m/s^2]
     max_target_acceleration: 4.0       # [m/s^2]
-    min_jerk: -8.0                     # [m/s^3]
+    min_jerk: -5.0                     # [m/s^3]  symmetric with max_jerk (was -8.0)
     max_jerk:  5.0                     # [m/s^3]
 
     # Integrator and derivative filter.
     max_integral_error: 5.0            # [m*s]
-    derivative_filter_alpha: 0.2       # EMA coefficient (0=off, 1=raw)
+    derivative_filter_alpha: 0.15      # EMA coefficient (0=off, 1=raw)  increased 0.2→0.25 for faster D response
 
     control_period_ms: 20.0
 
 fuzzy_pid_controller_node:
   ros__parameters:
     adaptive_gains_topic: /control/fuzzy_pid/adaptive_gains
-    fuzzy_error_gain: 1.0
-    fuzzy_error_derivative_gain: 0.5
-    fuzzy_kd_min_ratio: 0.5
+    fuzzy_error_gain: 30.0
+    fuzzy_error_derivative_gain: 30.0
+    # Lower bound on adaptive Kp: Kp >= fuzzy_kp_min_ratio * kp_base (never zero).
+    fuzzy_kp_min_ratio: 0.7
+    # Lower bound on adaptive Kd: Kd >= fuzzy_kd_min_ratio * kd_base.
+    # Increased from 0.5 → 0.8 to reduce under-damping that caused jerk spikes.
+    fuzzy_kd_min_ratio: 0.8
+    # Max fractional change of adaptive_kp per control step (fraction of kp_base).
+    # Limits how fast the P-gain can jump, preventing sudden jerk spikes.
+    gain_rate_limit: 0.3

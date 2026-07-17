@@ -8,7 +8,8 @@
 #include <cmath>
 
 #define ADAPTIVE 0
-#define TUNING 1
+#define TUNING 0
+#define MIX 1
 
 namespace car_controller
 {
@@ -22,7 +23,9 @@ struct FuzzyPidCoreParams
   double kd = 0.05;
   double fuzzy_error_gain = 0.8;
   double fuzzy_error_derivative_gain = 0.5;
-  double fuzzy_kd_min_ratio = 0.5;
+  double fuzzy_kp_min_ratio = 0.7;   ///< Lower bound of adaptive Kp as a fraction of base kp (> 0)
+  double fuzzy_kd_min_ratio = 0.8;   ///< Lower bound of adaptive Kd as a fraction of base kd
+  double gain_rate_limit = 0.3;      ///< Max fractional change of adaptive_kp per control step [fraction of kp]
   double max_integral_error = 5.0;
   double max_output = 2.0;
   double derivative_filter_alpha = 0.2;
@@ -33,9 +36,12 @@ struct FuzzyPidCoreParams
 /// Gains are adapted each cycle via a Sugeno-type fuzzy inference system.
 ///
 /// Adaptive gain bounds:
-///   adaptive_kp ∈ [0.7*kp, 2.0*kp]
-///   adaptive_ki ∈ [0.0,    2.0*ki]
-///   adaptive_kd ∈ [kd_min_ratio*kd, 2.0*kd]
+///   adaptive_kp ∈ [kp_min_ratio*kp, 2.0*kp]  (kp_min_ratio ∈ (0,1], default 0.7)
+///   adaptive_ki ∈ [ki*0.5,           2.0*ki]  (never zero during operation)
+///   adaptive_kd ∈ [kd_min_ratio*kd,  2.0*kd]  (kd_min_ratio default 0.8)
+///
+/// Gain rate limiting:
+///   |Δadaptive_kp| per step ≤ gain_rate_limit * kp
 class FuzzyPidCore
 {
 public:
@@ -48,16 +54,27 @@ public:
     adaptive_kp_(params.kp),
     adaptive_ki_(params.ki),
     adaptive_kd_(params.kd),
+    fuzzy_kp_gain_(0.0), fuzzy_ki_gain_(0.0), fuzzy_kd_gain_(0.0),
     has_prev_error_(false)
   {
+    // Clamp min ratios to safe values to guarantee gains > 0.
+    params_.fuzzy_kp_min_ratio = std::max(0.1, std::min(1.0, params_.fuzzy_kp_min_ratio));
+    params_.fuzzy_kd_min_ratio = std::max(0.1, std::min(1.0, params_.fuzzy_kd_min_ratio));
+    params_.gain_rate_limit    = std::max(0.0, params_.gain_rate_limit);
 #if ADAPTIVE
     fuzzy_kp_gain_ = params_.kp * 0.1 / 3.0;
     fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.02 / 3.0 : 0.0;
     fuzzy_kd_gain_ = params_.kd * 0.07 / 3.0;
 #elif TUNING
-    fuzzy_kp_gain_ = params_.kp * 0.8 / 3.0;
+    fuzzy_kp_gain_ = params_.kp * 1.0 / 3.0;
     fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.1 / 3.0 : 0.0;
-    fuzzy_kd_gain_ = params_.kd * 0.35 / 3.0;
+    fuzzy_kd_gain_ = params_.kd * 0.30 / 3.0;
+#elif MIX
+    fuzzy_kp_gain_ = params_.kp * 0.1 / 3.0;
+    // Ki gain increased ×5 (0.1 → 0.5): expands Ki adaptation range from ±2% → ±10%
+    // of base ki, enabling better disturbance rejection (grade, drag, wind).
+    fuzzy_ki_gain_ = (params_.ki > 0.0) ? params_.ki * 0.5 / 3.0 : 0.0;
+    fuzzy_kd_gain_ = params_.kd * 0.30 / 3.0;
 #endif
   }
 
@@ -101,6 +118,7 @@ public:
     integral_ = 0.0;
     prev_error_ = 0.0;
     filtered_derivative_ = 0.0;
+    // Reset gains to base values — always guaranteed > 0 because kp_min_ratio >= 0.1.
     adaptive_kp_ = params_.kp;
     adaptive_ki_ = params_.ki;
     adaptive_kd_ = params_.kd;
@@ -219,23 +237,47 @@ private:
         std::chrono::duration<double, std::micro>(inference_end - inference_start).count();
       return;
     }
+    // Common bounds used across all modes.
+    const double kp_lo = params_.fuzzy_kp_min_ratio * params_.kp;  // always > 0
+    const double kp_hi = 2.0 * params_.kp;
+    // Ki lower bound: half of base ki so integral action is never completely disabled.
+    const double ki_lo = (params_.ki > 0.0) ? 0.5 * params_.ki : 0.0;
+    const double ki_hi = 2.0 * params_.ki;
+    const double kd_lo = params_.fuzzy_kd_min_ratio * params_.kd;  // always > 0
+    const double kd_hi = 2.0 * params_.kd;
+    // Rate limit on adaptive_kp to prevent abrupt gain jumps that cause jerk spikes.
+    const double kp_max_delta = params_.gain_rate_limit * params_.kp;
+
 #if ADAPTIVE
-    adaptive_kp_ = std::clamp(
-      adaptive_kp_ + fuzzy_kp_gain_ * sum_kp / w_sum,
-      0.7 * params_.kp, 2.0 * params_.kp);
+    {
+      const double kp_raw = adaptive_kp_ + fuzzy_kp_gain_ * sum_kp / w_sum;
+      const double kp_delta = std::clamp(kp_raw - adaptive_kp_, -kp_max_delta, kp_max_delta);
+      adaptive_kp_ = std::clamp(adaptive_kp_ + kp_delta, kp_lo, kp_hi);
+    }
     adaptive_ki_ = std::clamp(
-      adaptive_ki_ + fuzzy_ki_gain_ * sum_ki / w_sum,
-      0.0, 2.0 * params_.ki);
+      adaptive_ki_ + fuzzy_ki_gain_ * sum_ki / w_sum, ki_lo, ki_hi);
     adaptive_kd_ = std::clamp(
-      adaptive_kd_ + fuzzy_kd_gain_ * sum_kd / w_sum,
-      params_.fuzzy_kd_min_ratio * params_.kd, 2.0 * params_.kd);
+      adaptive_kd_ + fuzzy_kd_gain_ * sum_kd / w_sum, kd_lo, kd_hi);
 #elif TUNING
-    adaptive_kp_ = std::clamp(
-      params_.kp + fuzzy_kp_gain_ * sum_kp / w_sum, 0.7 * params_.kp, 2.0 * params_.kp);
+    {
+      const double kp_raw = params_.kp + fuzzy_kp_gain_ * sum_kp / w_sum;
+      const double kp_delta = std::clamp(kp_raw - adaptive_kp_, -kp_max_delta, kp_max_delta);
+      adaptive_kp_ = std::clamp(adaptive_kp_ + kp_delta, kp_lo, kp_hi);
+    }
     adaptive_ki_ = std::clamp(
-      params_.ki + fuzzy_ki_gain_ * sum_ki / w_sum, 0.0, 2.0 * params_.ki);
+      params_.ki + fuzzy_ki_gain_ * sum_ki / w_sum, ki_lo, ki_hi);
     adaptive_kd_ = std::clamp(
-      params_.kd + fuzzy_kd_gain_ * sum_kd / w_sum, params_.fuzzy_kd_min_ratio * params_.kd, 2.0 * params_.kd);
+      params_.kd + fuzzy_kd_gain_ * sum_kd / w_sum, kd_lo, kd_hi);
+#elif MIX
+    {
+      const double kp_raw = adaptive_kp_ + fuzzy_kp_gain_ * sum_kp / w_sum;
+      const double kp_delta = std::clamp(kp_raw - adaptive_kp_, -kp_max_delta, kp_max_delta);
+      adaptive_kp_ = std::clamp(adaptive_kp_ + kp_delta, kp_lo, kp_hi);
+    }
+    adaptive_ki_ = std::clamp(
+      params_.ki + fuzzy_ki_gain_ * sum_ki / w_sum, ki_lo, ki_hi);
+    adaptive_kd_ = std::clamp(
+      params_.kd + fuzzy_kd_gain_ * sum_kd / w_sum, kd_lo, kd_hi);
 #endif
     const auto inference_end = std::chrono::steady_clock::now();
     fuzzy_inference_duration_us_ =

@@ -140,6 +140,7 @@ def run_simulation(
     duration: float,
     real_timeout: float,
     vehicle_model: str,
+    gazebo_gui: str,
 ) -> None:
     processes: list[subprocess.Popen[bytes]] = []
     print(
@@ -168,7 +169,8 @@ def run_simulation(
             f"scenario:={shlex.quote(scenario)} "
             f"scenario_file:={shlex.quote(str(scenario_file))} "
             f"random_seed:={seed} "
-            f"vehicle_model:={vehicle_model}"
+            f"vehicle_model:={vehicle_model} "
+            f"gazebo_gui:={gazebo_gui}"
         )
         simulation = start_launch(command)
         processes.append(simulation)
@@ -207,6 +209,12 @@ def parse_args() -> argparse.Namespace:
         choices=("longitudinal_sim", "gazebo_effort"),
         default="gazebo_effort",
         help="Vehicle backend (default: gazebo_effort)",
+    )
+    parser.add_argument(
+        "--gazebo-gui",
+        choices=("true", "false"),
+        default="true",
+        help="Whether to open the Gazebo GUI (default: true)",
     )
     parser.add_argument(
         "--scenario",
@@ -295,6 +303,7 @@ def main() -> int:
                     args.duration,
                     args.real_timeout,
                     args.vehicle_model,
+                    args.gazebo_gui,
                 )
                 archived_logs.append(
                     archive_log(log_path, args.vehicle_model, args.scenario, seed)
