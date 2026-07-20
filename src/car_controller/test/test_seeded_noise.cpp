@@ -20,7 +20,7 @@ LongitudinalVehicleModel::Params noisy_params(uint64_t seed, double sigma)
   p.grade_percent = 0.0;
   p.rolling_resistance_coeff = 0.0;
   p.drag_coeff = 0.0;
-  p.mass_kg = 1800.0;
+  p.mass_kg = 1423.0;
   p.process_noise_sigma = sigma;
   p.random_seed = seed;
   return p;

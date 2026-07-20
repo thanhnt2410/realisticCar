@@ -3,7 +3,7 @@ odometry_adapter:
     use_sim_time: true
     input_topic: /simulation/gazebo_odometry
     twist_frame: body
-    # The Gazebo Sim URDF publishes forward body velocity on +X.
+    # Gazebo's odometry publisher reports the model-forward component on X.
     body_longitudinal_axis: "x"
     body_longitudinal_sign: 1.0
     velocity_noise_sigma: 0.0

@@ -3,7 +3,7 @@ longitudinal_vehicle_simulator_node:
     # Actuator dynamics
     actuator_delay_s: 0.1          # Command delay [s]
     actuator_lag_tau_s: 0.15       # First-order lag time constant [s]
-    max_accel: 4.0                 # [m/s^2]
+    max_accel: 3.0                 # [m/s^2]
     min_accel: -3.0                # [m/s^2]
     max_jerk: 5.0                  # [m/s^3]
     min_jerk: -5.0                 # [m/s^3]
@@ -11,8 +11,8 @@ longitudinal_vehicle_simulator_node:
     # Road / load
     grade_percent: 0.0             # Road grade [%] – positive uphill
     rolling_resistance_coeff: 0.01
-    drag_coeff: 0.00025            # Simplified: F_drag/m ≈ drag_coeff * v^2
-    mass_kg: 1800.0
+    drag_coeff: 0.35575            # Aerodynamic force: F_drag = -drag_coeff * v*|v| [N]
+    mass_kg: 1423.0                # Sum of all inertial masses in prius_gz.urdf
     gravity: 9.81
 
     # Noise (set to 0.0 for deterministic baseline)

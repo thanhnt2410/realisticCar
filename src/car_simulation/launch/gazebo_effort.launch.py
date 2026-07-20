@@ -112,6 +112,7 @@ def generate_launch_description():
             "use_sim_time": "true",
             "vehicle_backend": "gazebo_effort",
             "scenario": scenario,
+            "random_seed": random_seed,
         }.items(),
     )
     pid_controller = IncludeLaunchDescription(
@@ -125,6 +126,7 @@ def generate_launch_description():
             "use_sim_time": "true",
             "vehicle_backend": "gazebo_effort",
             "scenario": scenario,
+            "random_seed": random_seed,
         }.items(),
     )
     planner = IncludeLaunchDescription(

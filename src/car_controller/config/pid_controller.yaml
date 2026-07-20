@@ -1,0 +1,30 @@
+# Parameters dedicated to the plain PID longitudinal controller.
+# Gains are acceleration-correction gains:
+#   Kp [1/s], Ki [1/s^2], Kd [dimensionless]
+
+velocity_controller_common:
+  ros__parameters:
+    # Initial values copied from the formerly shared controller configuration.
+    # pso_plain_pid_tuner updates only these three keys.
+    kp: 3.675574338
+    ki: 0.1594653433
+    kd: 0.6133557386
+
+    longitudinal_reference_topic: /planning/longitudinal_reference
+    odom_topic: /localization/kinematic_state
+    longitudinal_cmd_topic: /control/trajectory_follower/longitudinal_cmd
+    acceleration_correction_topic: /control/trajectory_follower/acceleration_correction
+
+    max_acceleration_correction: 4.0
+    min_target_acceleration: -3.0
+    max_target_acceleration: 4.0
+    min_jerk: -5.0
+    max_jerk: 5.0
+
+    max_integral_error: 5.0
+    derivative_filter_alpha: 0.15
+    control_period_ms: 20.0
+
+pid_velocity_controller_node:
+  ros__parameters:
+    debug_topic: /control/pid/debug

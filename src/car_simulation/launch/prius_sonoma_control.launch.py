@@ -64,7 +64,11 @@ def generate_launch_description():
                 "trapezoid_velocity_profile.launch.py",
             )
         ),
-        launch_arguments={"use_sim_time": "true", "scenario": scenario}.items(),
+        launch_arguments={
+            "use_sim_time": "true",
+            "scenario": scenario,
+            "random_seed": random_seed,
+        }.items(),
     )
 
     # ----------------------------------------------------------------
@@ -100,7 +104,11 @@ def generate_launch_description():
             os.path.join(car_controller_share, "launch", "pid_velocity_controller.launch.py")
         ),
         condition=IfCondition(PythonExpression(["'", controller, "' == 'pid'"])),
-        launch_arguments={"use_sim_time": "true"}.items(),
+        launch_arguments={
+            "use_sim_time": "true",
+            "scenario": scenario,
+            "random_seed": random_seed,
+        }.items(),
     )
 
     # (Velocity logger is launched by the individual controller launch files)

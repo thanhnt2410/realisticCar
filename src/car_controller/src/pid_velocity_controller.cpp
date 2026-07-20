@@ -76,6 +76,14 @@ public:
       create_subscription<car_msgs::msg::LongitudinalReference>(
       ref_topic, 10,
       [this](const car_msgs::msg::LongitudinalReference::SharedPtr msg) {
+        if (!std::isfinite(msg->velocity) || !std::isfinite(msg->acceleration) ||
+          !std::isfinite(msg->jerk) || std::abs(msg->velocity) > 100.0F)
+        {
+          RCLCPP_WARN_THROTTLE(
+            get_logger(), *get_clock(), 2000,
+            "Rejected invalid longitudinal reference");
+          return;
+        }
         reference_ = *msg;
         has_reference_ = true;
       });

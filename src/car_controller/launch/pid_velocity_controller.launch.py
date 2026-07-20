@@ -29,12 +29,13 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     vehicle_backend = LaunchConfiguration("vehicle_backend")
     scenario = LaunchConfiguration("scenario")
+    random_seed = LaunchConfiguration("random_seed")
     car_controller_share = get_package_share_directory("car_controller")
     workspace_root = get_workspace_root(car_controller_share)
     controller_config_file = os.path.join(
         car_controller_share,
         "config",
-        "fuzzy_pid_controller.yaml",
+        "pid_controller.yaml",
     )
     velocity_logger_config_file = os.path.join(
         car_controller_share,
@@ -66,6 +67,7 @@ def generate_launch_description():
                 "use_sim_time": use_sim_time,
                 "vehicle_backend": vehicle_backend,
                 "scenario": scenario,
+                "seed": random_seed,
             },
         ],
     )
@@ -80,6 +82,11 @@ def generate_launch_description():
             "scenario",
             default_value="baseline",
             description="Scenario label recorded in the CSV log",
+        ),
+        DeclareLaunchArgument(
+            "random_seed",
+            default_value="1001",
+            description="Random seed recorded in the CSV log",
         ),
         DeclareLaunchArgument(
             "use_sim_time",

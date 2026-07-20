@@ -4,14 +4,14 @@ longitudinal_vehicle_simulator_node:
   ros__parameters:
     actuator_delay_s: 0.20          # Extended delay [s]
     actuator_lag_tau_s: 0.15
-    max_accel: 4.0
+    max_accel: 3.0
     min_accel: -3.0
     max_jerk: 5.0
     min_jerk: -5.0
     grade_percent: 0.0              # runner steps this dynamically
     rolling_resistance_coeff: 0.01
-    drag_coeff: 0.00025
-    mass_kg: 1800.0
+    drag_coeff: 0.35575
+    mass_kg: 1423.0
     gravity: 9.81
     velocity_noise_sigma: 0.05      # [m/s]
     process_noise_sigma: 0.05       # [m/s^2]

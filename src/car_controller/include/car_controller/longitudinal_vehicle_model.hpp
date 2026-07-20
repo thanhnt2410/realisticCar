@@ -18,15 +18,15 @@ struct LongitudinalVehicleModelParams
   // Actuator.
   double actuator_delay_s = 0.1;           ///< Command delay [s]
   double actuator_lag_tau_s = 0.15;        ///< First-order lag time constant [s]
-  double max_accel = 2.0;                  ///< Actuator accel clamp (positive) [m/s^2]
+  double max_accel = 3.0;                  ///< Actuator accel clamp (positive) [m/s^2]
   double min_accel = -3.0;                 ///< Actuator accel clamp (negative) [m/s^2]
   double max_jerk = 5.0;                   ///< Jerk limit (positive) [m/s^3]
   double min_jerk = -5.0;                  ///< Jerk limit (negative) [m/s^3]
   // Road.
   double grade_percent = 0.0;              ///< Road grade [%] (+uphill, -downhill)
   double rolling_resistance_coeff = 0.01;
-  double drag_coeff = 0.00025;             ///< F_drag/m ≈ drag_coeff * v^2 [1/m]
-  double mass_kg = 1800.0;                 ///< Vehicle mass [kg]
+  double drag_coeff = 0.35575;             ///< Aerodynamic force coefficient [N/(m/s)^2]
+  double mass_kg = 1423.0;                 ///< Vehicle mass [kg]
   // Noise.
   double process_noise_sigma = 0.0;        ///< Process noise std-dev [m/s^2]
   uint64_t random_seed = 42;
@@ -102,10 +102,15 @@ public:
 
     // 5. External forces.
     const double grade_angle = std::atan(grade_percent_override / 100.0);
-    const double a_grade = -params_.gravity * std::sin(grade_angle);
-    const double a_rolling = (true_velocity_ > 0.05) ?
-      -params_.rolling_resistance_coeff * params_.gravity : 0.0;
-    const double a_drag = -params_.drag_coeff * true_velocity_ * std::abs(true_velocity_);
+    const double safe_mass = std::max(params_.mass_kg, 1e-6);
+    const double drive_force = applied_acceleration_ * safe_mass;
+    const double grade_force = -safe_mass * params_.gravity * std::sin(grade_angle);
+    const double rolling_force = (true_velocity_ > 0.05) ?
+      -params_.rolling_resistance_coeff * safe_mass * params_.gravity : 0.0;
+    const double drag_force = -params_.drag_coeff * true_velocity_ * std::abs(true_velocity_);
+    const double a_grade = grade_force / safe_mass;
+    const double a_rolling = rolling_force / safe_mass;
+    const double a_drag = drag_force / safe_mass;
 
     // 6. Process noise.
     double a_noise = 0.0;
@@ -115,7 +120,9 @@ public:
     }
 
     // 7. Integrate.
-    const double a_total = applied_acceleration_ + a_grade + a_rolling + a_drag + a_noise;
+    const double disturbance_force = a_noise * safe_mass;
+    const double a_total =
+      (drive_force + grade_force + rolling_force + drag_force + disturbance_force) / safe_mass;
     true_velocity_ = std::max(0.0, true_velocity_ + a_total * dt);
 
     last_a_grade_ = a_grade;

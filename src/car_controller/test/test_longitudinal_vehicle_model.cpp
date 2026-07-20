@@ -20,7 +20,7 @@ LongitudinalVehicleModel::Params flat_params()
   p.grade_percent = 0.0;
   p.rolling_resistance_coeff = 0.0;
   p.drag_coeff = 0.0;
-  p.mass_kg = 1800.0;
+  p.mass_kg = 1423.0;
   p.process_noise_sigma = 0.0;
   p.random_seed = 42;
   return p;
@@ -80,6 +80,24 @@ TEST(LongitudinalVehicleModel, AccelClamp)
   LongitudinalVehicleModel model(p);
   model.step(10.0, 1.0, 0.0);  // commanded 10, clamped to 1
   EXPECT_NEAR(model.true_velocity(), 1.0, 0.01);
+}
+
+TEST(LongitudinalVehicleModel, HigherMassReducesAerodynamicDeceleration)
+{
+  auto light_params = flat_params();
+  light_params.mass_kg = 1000.0;
+  light_params.drag_coeff = 0.35575;
+  auto heavy_params = light_params;
+  heavy_params.mass_kg = 2000.0;
+  LongitudinalVehicleModel light(light_params);
+  LongitudinalVehicleModel heavy(heavy_params);
+
+  light.step(5.0, 1.0, 0.0);
+  heavy.step(5.0, 1.0, 0.0);
+  light.step(0.0, 1.0, 0.0);
+  heavy.step(0.0, 1.0, 0.0);
+
+  EXPECT_LT(light.true_velocity(), heavy.true_velocity());
 }
 
 TEST(LongitudinalVehicleModel, NoNanWithZeroDt)

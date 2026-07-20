@@ -38,15 +38,15 @@ public:
     car_controller::LongitudinalVehicleModel::Params model_params;
     model_params.actuator_delay_s = declare_parameter<double>("actuator_delay_s", 0.1);
     model_params.actuator_lag_tau_s = declare_parameter<double>("actuator_lag_tau_s", 0.15);
-    model_params.max_accel = declare_parameter<double>("max_accel", 2.0);
+    model_params.max_accel = declare_parameter<double>("max_accel", 3.0);
     model_params.min_accel = declare_parameter<double>("min_accel", -3.0);
     model_params.max_jerk = declare_parameter<double>("max_jerk", 5.0);
     model_params.min_jerk = declare_parameter<double>("min_jerk", -5.0);
     model_params.grade_percent = declare_parameter<double>("grade_percent", 0.0);
     model_params.rolling_resistance_coeff =
       declare_parameter<double>("rolling_resistance_coeff", 0.01);
-    model_params.drag_coeff = declare_parameter<double>("drag_coeff", 0.00025);
-    model_params.mass_kg = declare_parameter<double>("mass_kg", 1800.0);
+    model_params.drag_coeff = declare_parameter<double>("drag_coeff", 0.35575);
+    model_params.mass_kg = declare_parameter<double>("mass_kg", 1423.0);
     model_params.process_noise_sigma = declare_parameter<double>("process_noise_sigma", 0.0);
     model_params.random_seed = static_cast<uint64_t>(
       declare_parameter<int>("random_seed", 42));

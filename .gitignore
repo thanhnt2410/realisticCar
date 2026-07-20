@@ -6,6 +6,7 @@
 # Generated simulation and controller results (keep scripts/manifests)
 /logs/**/*.csv
 /logs/**/*.png
+/logs/ros/
 
 # Python caches and tooling
 __pycache__/

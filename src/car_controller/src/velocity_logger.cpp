@@ -122,6 +122,11 @@ public:
     ref_sub_ = create_subscription<car_msgs::msg::LongitudinalReference>(
       ref_topic, 10,
       [this](const car_msgs::msg::LongitudinalReference::SharedPtr msg) {
+        if (!std::isfinite(msg->velocity) || !std::isfinite(msg->acceleration) ||
+          !std::isfinite(msg->jerk) || std::abs(msg->velocity) > 100.0F)
+        {
+          return;
+        }
         v_ref_ = static_cast<double>(msg->velocity);
         a_ref_ = static_cast<double>(msg->acceleration);
         has_reference_ = true;

@@ -34,8 +34,11 @@ CONTROLLERS = (
 
 def start_launch(command: str) -> subprocess.Popen[bytes]:
     """Start one ROS launch in its own process group after sourcing the workspace."""
+    ros_log_dir = WORKSPACE / "logs" / "ros"
+    ros_log_dir.mkdir(parents=True, exist_ok=True)
     shell_command = (
         f"source {shlex.quote(str(SETUP_FILE))} && "
+        f"export ROS_LOG_DIR={shlex.quote(str(ros_log_dir))} && "
         f"exec {command}"
     )
     return subprocess.Popen(

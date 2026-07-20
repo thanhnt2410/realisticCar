@@ -64,6 +64,19 @@ ament_target_dependencies(noisy_controller ${dependencies})
 add_executable(velocity_logger src/velocity_logger.cpp)
 ament_target_dependencies(velocity_logger ${dependencies})
 
+# Offline PSO tuner for the base Fuzzy PID gains.
+add_executable(pso_pid_tuner src/pso_pid_tuner.cpp)
+target_compile_definitions(pso_pid_tuner PRIVATE
+  DEFAULT_FUZZY_PID_YAML="${CMAKE_CURRENT_SOURCE_DIR}/config/fuzzy_pid_controller.yaml"
+  DEFAULT_VEHICLE_MODEL_YAML="${CMAKE_CURRENT_SOURCE_DIR}/config/vehicle_simulator.yaml")
+
+# Independent offline PSO tuner for the non-fuzzy PidCore gains.
+add_executable(pso_plain_pid_tuner src/pso_pid_tuner.cpp)
+target_compile_definitions(pso_plain_pid_tuner PRIVATE
+  TUNE_PLAIN_PID
+  DEFAULT_PID_YAML="${CMAKE_CURRENT_SOURCE_DIR}/config/pid_controller.yaml"
+  DEFAULT_VEHICLE_MODEL_YAML="${CMAKE_CURRENT_SOURCE_DIR}/config/vehicle_simulator.yaml")
+
 foreach(target
   fuzzy_pid_controller
   pid_velocity_controller
@@ -73,6 +86,8 @@ foreach(target
   simple_controller
   noisy_controller
   velocity_logger
+  pso_pid_tuner
+  pso_plain_pid_tuner
 )
   target_include_directories(${target} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -93,6 +108,8 @@ install(TARGETS
   simple_controller
   noisy_controller
   velocity_logger
+  pso_pid_tuner
+  pso_plain_pid_tuner
   DESTINATION lib/${PROJECT_NAME})
 
 install(TARGETS rear_wheel_effort_system

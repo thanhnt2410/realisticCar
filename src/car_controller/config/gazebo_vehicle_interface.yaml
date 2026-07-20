@@ -1,7 +1,7 @@
 gazebo_vehicle_interface:
   ros__parameters:
     use_sim_time: true
-    effective_mass_kg: 1450.0
+    effective_mass_kg: 1423.0
     wheel_radius_m: 0.31265
     max_acceleration_mps2: 3.0
     max_wheel_torque_nm: 800.0

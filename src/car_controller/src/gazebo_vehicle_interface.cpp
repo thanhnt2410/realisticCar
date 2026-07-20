@@ -15,7 +15,7 @@ public:
   GazeboVehicleInterface()
   : Node("gazebo_vehicle_interface"),
     core_(
-      declare_parameter<double>("effective_mass_kg", 1450.0),
+      declare_parameter<double>("effective_mass_kg", 1423.0),
       declare_parameter<double>("wheel_radius_m", 0.31265),
       declare_parameter<double>("max_acceleration_mps2", 3.0),
       declare_parameter<double>("max_wheel_torque_nm", 800.0))

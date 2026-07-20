@@ -5,9 +5,12 @@
 velocity_controller_common:
   ros__parameters:
     # Base PID gains (acceleration correction output [m/s^2]).
-    kp: 1.2
-    ki: 0.12
-    kd: 0.5
+    # kp: 1.2
+    # ki: 0.12
+    # kd: 0.5
+    kp: 3.689581301
+    ki: 0.124693862
+    kd: 0.267581789
 
     # Topic contract.
     longitudinal_reference_topic: /planning/longitudinal_reference
