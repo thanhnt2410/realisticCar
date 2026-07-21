@@ -1,8 +1,11 @@
-"""Launch the Gazebo Sim 8 rear-wheel-effort vehicle backend."""
+"""Launch the Gazebo Fortress (Sim 6) rear-wheel-effort vehicle backend."""
 
 import os
 
-from ament_index_python.packages import get_package_prefix, get_package_share_directory
+from ament_index_python.packages import (
+    get_package_prefix,
+    get_package_share_directory,
+)
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
@@ -36,17 +39,17 @@ def generate_launch_description():
     world = os.path.join(simulation_share, "worlds", "prius_effort_spike.sdf")
     vehicle_urdf = os.path.join(description_share, "urdf", "prius_gz.urdf")
     gazebo_env = {
-        "GZ_SIM_RESOURCE_PATH": os.path.dirname(description_share),
-        "GZ_SIM_SYSTEM_PLUGIN_PATH": os.path.join(prefix, "lib"),
+        "IGN_GAZEBO_RESOURCE_PATH": os.path.dirname(description_share),
+        "IGN_GAZEBO_SYSTEM_PLUGIN_PATH": os.path.join(prefix, "lib"),
     }
     gazebo_with_gui = ExecuteProcess(
-        cmd=["gz", "sim", "-r", world],
+        cmd=["ign", "gazebo", "--force-version", "6", "-r", world],
         output="screen",
         condition=IfCondition(gazebo_gui),
         additional_env=gazebo_env,
     )
     gazebo_headless = ExecuteProcess(
-        cmd=["gz", "sim", "-r", "-s", world],
+        cmd=["ign", "gazebo", "--force-version", "6", "-r", "-s", world],
         output="screen",
         condition=IfCondition(
             PythonExpression(["'", gazebo_gui, "' != 'true'"])
@@ -60,10 +63,10 @@ def generate_launch_description():
     )
     spawn_vehicle = ExecuteProcess(
         cmd=[
-            "gz", "service",
+            "ign", "service",
             "-s", "/world/prius_effort_spike/create",
-            "--reqtype", "gz.msgs.EntityFactory",
-            "--reptype", "gz.msgs.Boolean",
+            "--reqtype", "ignition.msgs.EntityFactory",
+            "--reptype", "ignition.msgs.Boolean",
             "--timeout", "30000",
             "--req", entity_request,
         ],
@@ -75,10 +78,12 @@ def generate_launch_description():
         executable="parameter_bridge",
         name="gazebo_effort_bridge",
         arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-            "/model/car/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry",
-            "/rear_wheel_effort/left@std_msgs/msg/Float64]gz.msgs.Double",
-            "/rear_wheel_effort/right@std_msgs/msg/Float64]gz.msgs.Double",
+            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
+            "/model/car/odometry@nav_msgs/msg/Odometry[ignition.msgs.Odometry",
+            "/rear_wheel_effort/left@std_msgs/msg/Float64]"
+            "ignition.msgs.Double",
+            "/rear_wheel_effort/right@std_msgs/msg/Float64]"
+            "ignition.msgs.Double",
         ],
         remappings=[
             ("/model/car/odometry", "/simulation/gazebo_odometry"),
@@ -146,7 +151,7 @@ def generate_launch_description():
     wait_for_odometry = ExecuteProcess(
         cmd=[
             "bash", "-c",
-            "until gz topic -l 2>/dev/null | grep -Fxq "
+            "until ign topic -l 2>/dev/null | grep -Fxq "
             "'/model/car/odometry'; do sleep 0.2; done",
         ]
     )

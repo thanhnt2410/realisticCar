@@ -17,6 +17,7 @@
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>car_msgs</depend>
+  <depend>ignition-gazebo6</depend>
 
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>controller_manager</exec_depend>

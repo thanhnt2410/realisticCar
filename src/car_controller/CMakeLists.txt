@@ -16,7 +16,7 @@ find_package(tf2_ros REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(car_msgs REQUIRED)
-find_package(gz-sim8 REQUIRED)
+find_package(ignition-gazebo6 REQUIRED)
 
 include_directories(include)
 
@@ -48,9 +48,12 @@ ament_target_dependencies(gazebo_vehicle_interface ${dependencies})
 add_executable(odometry_adapter src/odometry_adapter.cpp)
 ament_target_dependencies(odometry_adapter ${dependencies})
 
-# Generic Gazebo Sim 8 effort layer with an independent command watchdog.
+# Generic Gazebo Fortress (Sim 6) effort layer with an independent command watchdog.
 add_library(rear_wheel_effort_system SHARED src/rear_wheel_effort_system.cpp)
-target_link_libraries(rear_wheel_effort_system gz-sim8::gz-sim8)
+target_link_libraries(
+  rear_wheel_effort_system
+  ignition-gazebo6::ignition-gazebo6
+)
 target_compile_features(rear_wheel_effort_system PUBLIC cxx_std_17)
 
 # --- Legacy / utility nodes (kept for smoke test / diagnostics) ---

@@ -26,7 +26,7 @@ Backend mới phải đáp ứng:
 ## 2. Hiện trạng cần ghi nhớ
 
 - `longitudinal_sim` hiện là plant chính. Nó tính `v_true`, thêm noise measurement và gửi velocity sang Gazebo chỉ để hiển thị.
-- Prius hiện được include từ Gazebo Fuel và được gắn `gz::sim::systems::DiffDrive`, nhận `/cmd_vel` và command hai rear wheel joints.
+- Prius hiện được include từ Gazebo Fuel và được gắn `ignition::gazebo::systems::DiffDrive`, nhận `/cmd_vel` và command hai rear wheel joints.
 - Model Prius Fuel không có sẵn hybrid engine, drivetrain hoặc `ros2_control` plugin.
 - `ideal_diff_drive` chỉ là launch scaffold lỗi thời: controller hiện không publish `/cmd_vel`, mode này cũng không cung cấp `/localization/kinematic_state`.
 - Package differential-drive `car_description` cũ không thuộc pipeline Prius và đã được loại khỏi workspace.
@@ -74,7 +74,7 @@ JointGroupEffortController + gz_ros2_control
 Prius rear wheel joints -> Gazebo contact physics
             |
             v
-OdometryPublisher -> ros_gz_bridge -> odometry_adapter
+OdometryPublisher -> ros_ign_bridge -> odometry_adapter
             |                           |
             |                           +-> /localization/kinematic_state
             +-> /simulation/ground_truth/odometry
@@ -148,7 +148,7 @@ với hai mức torque gần nhau tại cùng vùng vận tốc.
   ```
 
 - Copy hoặc tham chiếu asset theo quyết định license ở Phase 0.
-- Xóa `gz-sim-diff-drive-system` khỏi biến thể effort để tránh hai hệ thống cùng command rear wheel joints.
+- Xóa `ignition-gazebo-diff-drive-system` khỏi biến thể effort để tránh hai hệ thống cùng command rear wheel joints.
 - Giữ tên joint cần thiết:
   - `rear_left_wheel_joint`;
   - `rear_right_wheel_joint`.
@@ -157,7 +157,7 @@ với hai mức torque gần nhau tại cùng vùng vận tốc.
 
 ### 7.2 Thêm nguồn odometry độc lập
 
-Thêm `gz::sim::systems::OdometryPublisher` vì odometry cũ thuộc DiffDrive plugin và sẽ mất khi gỡ plugin đó.
+Thêm `ignition::gazebo::systems::OdometryPublisher` vì odometry cũ thuộc DiffDrive plugin và sẽ mất khi gỡ plugin đó.
 
 Yêu cầu:
 
@@ -169,7 +169,7 @@ Yêu cầu:
 ### 7.3 Thêm torque command thô
 
 - Gắn một `ApplyJointForce` system cho mỗi rear wheel joint.
-- Xác nhận topic `cmd_force` và message type bằng `gz topic -l/-i`.
+- Xác nhận topic `cmd_force` và message type bằng `ign topic -l/-i`.
 - Không giả định torque hai bánh cùng dấu sẽ tạo chuyển động thẳng; xác nhận dấu từ joint state và chuyển động chassis.
 - Thêm `JointStatePublisher` nếu cần để quan sát angular position/velocity.
 
@@ -492,12 +492,12 @@ Không bật đồng thời nhiều lớp trước khi từng lớp được ki�
 
 ### Phase 2 / Gate B
 
-- [x] `gz_ros2_control` được audit: bản Humble link Fortress 6, không tương thích Sim 8.
+- [x] Runtime được chuẩn hóa trên Fortress 6 và plugin link `libignition-gazebo6.so.6`.
 - [ ] Effort interfaces export/claim đúng.
 - [ ] Effort controller active.
 - [ ] CLI effort test khớp hợp lý với Phase 1.
 - [ ] Deactivation/safe state được xác minh.
-- [x] Fallback generic Sim 8 plugin có watchdog được chọn với bằng chứng ABI.
+- [x] Generic Fortress 6 plugin có watchdog được build và smoke test.
 
 ### Phase 3–5
 

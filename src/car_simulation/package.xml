@@ -15,7 +15,8 @@
   <exec_depend>car_controller</exec_depend>
   <exec_depend>car_description</exec_depend>
   <exec_depend>car_planning</exec_depend>
-  <exec_depend>ros_gz_bridge</exec_depend>
+  <!-- On ROS 2 Humble this compatibility package selects the Fortress bridge. -->
+  <exec_depend>ros_ign_bridge</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

@@ -1,22 +1,36 @@
 # Gazebo effort backend compatibility audit
 
-Audit date: 2026-07-15.
+Audit date: 2026-07-21.
 
-| Component | Installed version / runtime | Decision |
+The `gz6_PSO` branch targets Gazebo Fortress / Gazebo Sim 6 exclusively.
+
+| Component | Required version / runtime | Decision |
 |---|---|---|
 | ROS 2 | Humble | Supported workspace baseline |
-| `gz sim` | Sim 8.14.0 | Runtime used by existing launch |
-| `ign gazebo` | Fortress 6.18.0 | Installed, but not used by existing launch |
-| `gz_ros2_control` | ROS package 0.7.20 | Its system library links to `libignition-gazebo6.so.6`; ABI-incompatible with Sim 8 |
-| ApplyJointForce | `gz-sim-apply-joint-force-system` | Loaded successfully in Sim 8 |
-| OdometryPublisher | `gz-sim-odometry-publisher-system` | Loaded successfully in Sim 8 at 50 Hz |
+| Simulator | `ign gazebo --force-version 6` (Fortress 6.18.0 tested) | Runtime used by launch files |
+| Gazebo C++ API | `ignition-gazebo6` | Custom effort plugin build dependency |
+| Gazebo messages / transport | `ignition-msgs8` / `ignition-transport11` | Fortress ABI used by the plugin and bridge |
+| ROS bridge | `ros_ign_bridge` compatibility package | Selects the Humble bridge built for Fortress |
+| Built-in systems | `ignition-gazebo-*-system` | Physics, user commands, scene, joint state and odometry plugins |
 
-Gate A smoke result: equal `+250 Nm` commands moved the unrotated upstream model along
-its longitudinal `-Y` axis at about `3.43 m/s`, with yaw magnitude below `1e-6 rad`.
-The effort world rotates the model by +90 degrees so forward motion follows ROS +X.
+The rear-wheel effort plugin has an independent command watchdog and writes
+`JointForceCmd` components directly. It is linked to `libignition-gazebo6.so.6`; no
+Gazebo Sim 8 library is loaded into the Fortress process.
 
-Gate B cannot use the installed `gz_ros2_control` library in the Sim 8 process. This is
-an ABI mismatch rather than a controller YAML issue. The Sim 8 backend therefore uses
-the generic Gazebo `ApplyJointForce` systems and ROS-Gazebo scalar bridges. This decision
-must be revisited if the runtime is standardized on Fortress or a Sim 8-compatible
-`gz_ros2_control` package is installed.
+## Verification
+
+The clean build and headless smoke test verified:
+
+- Fortress 6 loaded `prius_effort_spike.sdf`;
+- the create service spawned `prius_gz.urdf` successfully;
+- the custom effort plugin accepted `ignition.msgs.Double` commands and moved the car;
+- `OdometryPublisher` published `/model/car/odometry`;
+- the Fortress ROS bridge created clock, odometry and both effort bridges;
+- `odometry_adapter` and `gazebo_vehicle_interface` started after odometry became ready.
+
+## Host package note
+
+The Fortress and Harmonic variants of the Humble bridge conflict at the Debian package
+level. A host that currently has `ros-humble-ros-gzharmonic-bridge` must replace that
+variant with `ros-humble-ros-ign-bridge` before running this branch normally. Do not
+load a Harmonic bridge (`gz-msgs10` / `gz-transport13`) into this Fortress stack.

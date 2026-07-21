@@ -132,11 +132,11 @@ def generate_launch_description():
         name="prius_sonoma_bridge",
         output="screen",
         arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
+            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
             # Gazebo odometry bridged for diagnostics only.
-            [gz_odom_topic, "@nav_msgs/msg/Odometry[gz.msgs.Odometry"],
+            [gz_odom_topic, "@nav_msgs/msg/Odometry[ignition.msgs.Odometry"],
             # Plant velocity -> Gazebo visualization.
-            "/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist",
+            "/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist",
         ],
         remappings=[
             # Gazebo odometry -> diagnostic topic (NOT used as controller feedback).
@@ -156,9 +156,9 @@ def generate_launch_description():
         name="prius_sonoma_bridge",
         output="screen",
         arguments=[
-            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
-            [gz_odom_topic, "@nav_msgs/msg/Odometry[gz.msgs.Odometry"],
-            "/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist",
+            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
+            [gz_odom_topic, "@nav_msgs/msg/Odometry[ignition.msgs.Odometry"],
+            "/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist",
         ],
         remappings=[
             (gz_odom_topic, ros_odom_topic),
@@ -172,7 +172,7 @@ def generate_launch_description():
     # Gazebo process
     # ----------------------------------------------------------------
     gazebo = ExecuteProcess(
-        cmd=["gz", "sim", "-r", gazebo_world],
+        cmd=["ign", "gazebo", "--force-version", "6", "-r", gazebo_world],
         output="screen",
         condition=IfCondition(
             PythonExpression([
@@ -197,7 +197,7 @@ def generate_launch_description():
             "bash",
             "-c",
             (
-                'until gz topic -l 2>/dev/null | grep -Fxq -- "$1"; '
+                'until ign topic -l 2>/dev/null | grep -Fxq -- "$1"; '
                 "do sleep 0.5; done"
             ),
             "wait_for_prius_odometry",
@@ -248,7 +248,9 @@ def generate_launch_description():
                 default_value="gazebo_effort",
                 choices=["longitudinal_sim", "gazebo_effort"],
                 description=(
-                    "gazebo_effort: Gazebo Sim 8 rear-wheel torque backend (default); "
+                    "gazebo_effort: Gazebo Fortress / Sim 6 rear-wheel "
+                    "torque backend "
+                    "(default); "
                     "longitudinal_sim: deterministic 1D baseline"
                 ),
             ),

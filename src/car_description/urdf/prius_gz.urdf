@@ -502,14 +502,14 @@
   <!-- GAZEBO -->
   <gazebo>
     <plugin filename="librear_wheel_effort_system.so"
-            name="realistic_car_gz::RearWheelEffortSystem">
+            name="realistic_car_ign::RearWheelEffortSystem">
       <left_topic>/rear_wheel_effort/left</left_topic>
       <right_topic>/rear_wheel_effort/right</right_topic>
       <command_timeout>0.25</command_timeout>
     </plugin>
 
-    <plugin filename="gz-sim-joint-state-publisher-system"
-            name="gz::sim::systems::JointStatePublisher">
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
       <joint_name>steering_joint</joint_name>
       <joint_name>front_left_steer_joint</joint_name>
       <joint_name>front_right_steer_joint</joint_name>
@@ -519,8 +519,8 @@
       <joint_name>rear_right_wheel_joint</joint_name>
     </plugin>
 
-    <plugin filename="gz-sim-odometry-publisher-system"
-            name="gz::sim::systems::OdometryPublisher">
+    <plugin filename="ignition-gazebo-odometry-publisher-system"
+            name="ignition::gazebo::systems::OdometryPublisher">
       <odom_topic>/model/car/odometry</odom_topic>
       <odom_frame>odom</odom_frame>
       <robot_base_frame>car/chassis</robot_base_frame>

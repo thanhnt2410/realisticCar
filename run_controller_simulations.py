@@ -363,7 +363,7 @@ def main() -> int:
 
     print(
         "\nCreate plots with: "
-        "python3 logs/plot_velocity_log.py "
+        "python3 logs/script/plot_velocity_log.py "
         f"--vehicle-model {args.vehicle_model} "
         f"--scenario {args.scenario} --runs {args.runs}"
     )

@@ -6,10 +6,11 @@ from pathlib import Path
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DEFAULT_FUZZY_LOG = SCRIPT_DIR / "fuzzy_pid_velocity_log.csv"
-DEFAULT_PID_LOG = SCRIPT_DIR / "pid_velocity_log.csv"
-DEFAULT_OUTPUT = SCRIPT_DIR / "velocity_tracking_comparison.png"
-DEFAULT_GAINS_OUTPUT = SCRIPT_DIR / "fuzzy_pid_adaptive_gains.png"
+LOGS_DIR = SCRIPT_DIR.parent
+DEFAULT_FUZZY_LOG = LOGS_DIR / "fuzzy_pid_velocity_log.csv"
+DEFAULT_PID_LOG = LOGS_DIR / "pid_velocity_log.csv"
+DEFAULT_OUTPUT = LOGS_DIR / "velocity_tracking_comparison.png"
+DEFAULT_GAINS_OUTPUT = LOGS_DIR / "fuzzy_pid_adaptive_gains.png"
 
 
 def read_velocity_log(path):
