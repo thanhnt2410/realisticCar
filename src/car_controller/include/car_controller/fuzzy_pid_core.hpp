@@ -29,19 +29,9 @@ struct FuzzyPidCoreParams
   double max_integral_error = 5.0;
   double max_output = 2.0;
   double derivative_filter_alpha = 0.2;
+  bool measure_timing = false;
 };
 
-/// ROS-free Fuzzy PID core that outputs acceleration correction [m/s^2].
-///
-/// Gains are adapted each cycle via a Sugeno-type fuzzy inference system.
-///
-/// Adaptive gain bounds:
-///   adaptive_kp ∈ [kp_min_ratio*kp, 2.0*kp]  (kp_min_ratio ∈ (0,1], default 0.7)
-///   adaptive_ki ∈ [ki*0.5,           2.0*ki]  (never zero during operation)
-///   adaptive_kd ∈ [kd_min_ratio*kd,  2.0*kd]  (kd_min_ratio default 0.8)
-///
-/// Gain rate limiting:
-///   |Δadaptive_kp| per step ≤ gain_rate_limit * kp
 class FuzzyPidCore
 {
 public:
@@ -220,7 +210,8 @@ private:
 
   void adaptGains(double error, double error_derivative)
   {
-    const auto inference_start = std::chrono::steady_clock::now();
+    const auto inference_start = params_.measure_timing ?
+      std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
 
     const double ne = std::clamp(params_.fuzzy_error_gain * error, -3.0, 3.0);
     const double nde =
@@ -244,9 +235,11 @@ private:
     }
 
     if (w_sum <= 1e-6) {
-      const auto inference_end = std::chrono::steady_clock::now();
-      fuzzy_inference_duration_us_ =
-        std::chrono::duration<double, std::micro>(inference_end - inference_start).count();
+      if (params_.measure_timing) {
+        const auto inference_end = std::chrono::steady_clock::now();
+        fuzzy_inference_duration_us_ =
+          std::chrono::duration<double, std::micro>(inference_end - inference_start).count();
+      }
       return;
     }
 #if ADAPTIVE
@@ -283,9 +276,11 @@ private:
     adaptive_kd_ = std::clamp(
       params_.kd + fuzzy_kd_gain_ * sum_kd / w_sum, kd_lo_, kd_hi_);
 #endif
-    const auto inference_end = std::chrono::steady_clock::now();
-    fuzzy_inference_duration_us_ =
-      std::chrono::duration<double, std::micro>(inference_end - inference_start).count();
+    if (params_.measure_timing) {
+      const auto inference_end = std::chrono::steady_clock::now();
+      fuzzy_inference_duration_us_ =
+        std::chrono::duration<double, std::micro>(inference_end - inference_start).count();
+    }
   }
 
   double computeOutput(double error)

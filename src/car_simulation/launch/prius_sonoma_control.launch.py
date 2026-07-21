@@ -28,6 +28,8 @@ def generate_launch_description():
     scenario = LaunchConfiguration("scenario")
     scenario_file = LaunchConfiguration("scenario_file")
     random_seed = LaunchConfiguration("random_seed")
+    publish_debug = LaunchConfiguration("publish_debug")
+    measure_timing = LaunchConfiguration("measure_timing")
     planning_start_delay = LaunchConfiguration("planning_start_delay")
     gazebo_gui = LaunchConfiguration("gazebo_gui")
     gz_odom_topic = LaunchConfiguration("gz_odom_topic")
@@ -48,6 +50,8 @@ def generate_launch_description():
             "scenario": scenario,
             "scenario_file": scenario_file,
             "random_seed": random_seed,
+            "publish_debug": publish_debug,
+            "measure_timing": measure_timing,
             "planning_start_delay": planning_start_delay,
             "gazebo_gui": gazebo_gui,
         }.items(),
@@ -96,7 +100,12 @@ def generate_launch_description():
             os.path.join(car_controller_share, "launch", "fuzzy_pid_controller.launch.py")
         ),
         condition=IfCondition(PythonExpression(["'", controller, "' == 'fuzzy_pid'"])),
-        launch_arguments={"use_sim_time": "true", "scenario": scenario}.items(),
+        launch_arguments={
+            "use_sim_time": "true",
+            "scenario": scenario,
+            "publish_debug": publish_debug,
+            "measure_timing": measure_timing,
+        }.items(),
     )
 
     pid_launch = IncludeLaunchDescription(
@@ -262,6 +271,18 @@ def generate_launch_description():
                 "random_seed",
                 default_value="1001",
                 description="RNG seed for vehicle simulator noise (overrides scenario_file value)",
+            ),
+            DeclareLaunchArgument(
+                "publish_debug",
+                default_value="false",
+                choices=["true", "false"],
+                description="Publish Fuzzy PID correction and adaptive-gain debug topics",
+            ),
+            DeclareLaunchArgument(
+                "measure_timing",
+                default_value="false",
+                choices=["true", "false"],
+                description="Record Fuzzy PID timing internally to a separate CSV",
             ),
             DeclareLaunchArgument(
                 "planning_start_delay",

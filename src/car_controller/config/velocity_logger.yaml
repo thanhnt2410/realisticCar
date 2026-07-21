@@ -1,6 +1,6 @@
 velocity_logger_node:
   ros__parameters:
-    # New topic contract (schema v2).
+    # Topic contract for the velocity log (schema v3; timing is stored separately).
     ground_truth_odom_topic: /simulation/ground_truth/odometry
     kinematic_state_topic: /localization/kinematic_state
     longitudinal_reference_topic: /planning/longitudinal_reference

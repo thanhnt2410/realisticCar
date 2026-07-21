@@ -30,6 +30,11 @@ velocity_controller_common:
     derivative_filter_alpha: 0.15      # EMA coefficient (0=off, 1=raw)  increased 0.2→0.25 for faster D response
 
     control_period_ms: 20.0
+    # Publish acceleration correction and adaptive-gain debug topics.
+    # Disable in production to avoid debug message construction and ROS publish overhead.
+    publish_debug: false
+    # Measure control-loop timing in memory and write a separate CSV when the node stops.
+    measure_timing: false
 
 fuzzy_pid_controller_node:
   ros__parameters:

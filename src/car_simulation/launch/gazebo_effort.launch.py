@@ -25,6 +25,8 @@ def generate_launch_description():
     description_share = get_package_share_directory("car_description")
     prefix = get_package_prefix("car_controller")
     controller = LaunchConfiguration("controller")
+    publish_debug = LaunchConfiguration("publish_debug")
+    measure_timing = LaunchConfiguration("measure_timing")
     scenario = LaunchConfiguration("scenario")
     scenario_file = LaunchConfiguration("scenario_file")
     random_seed = LaunchConfiguration("random_seed")
@@ -113,6 +115,8 @@ def generate_launch_description():
             "vehicle_backend": "gazebo_effort",
             "scenario": scenario,
             "random_seed": random_seed,
+            "publish_debug": publish_debug,
+            "measure_timing": measure_timing,
         }.items(),
     )
     pid_controller = IncludeLaunchDescription(
@@ -160,6 +164,16 @@ def generate_launch_description():
     )
     return LaunchDescription([
         DeclareLaunchArgument("controller", default_value="fuzzy_pid"),
+        DeclareLaunchArgument(
+            "publish_debug",
+            default_value="false",
+            choices=["true", "false"],
+        ),
+        DeclareLaunchArgument(
+            "measure_timing",
+            default_value="false",
+            choices=["true", "false"],
+        ),
         DeclareLaunchArgument("scenario", default_value="baseline"),
         DeclareLaunchArgument(
             "scenario_file",

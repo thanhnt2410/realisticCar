@@ -18,7 +18,14 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
+#include <exception>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <string>
+#include <system_error>
+#include <vector>
 
 #include "car_controller/fuzzy_pid_core.hpp"
 #include "car_controller/longitudinal_limits.hpp"
@@ -71,6 +78,14 @@ public:
 
     control_period_ms_ = declare_parameter<double>("control_period_ms", 20.0);
     control_period_ms_ = std::max(1.0, control_period_ms_);
+    publish_debug_ = declare_parameter<bool>("publish_debug", false);
+    measure_timing_ = declare_parameter<bool>("measure_timing", false);
+    timing_log_file_ = declare_parameter<std::string>(
+        "timing_log_file", "logs/fuzzy_pid_internal_timing.csv");
+    fp_params.measure_timing = measure_timing_;
+    if (measure_timing_) {
+      timing_samples_.reserve(10000);
+    }
 
     // ---- Topic names ----
     const std::string ref_topic = declare_parameter<std::string>(
@@ -111,10 +126,12 @@ public:
 
     longitudinal_cmd_pub_ =
         create_publisher<car_msgs::msg::Longitudinal>(cmd_topic, 10);
-    correction_pub_ =
-        create_publisher<std_msgs::msg::Float64>(correction_topic, 10);
-    adaptive_gains_pub_ =
-        create_publisher<std_msgs::msg::Float64MultiArray>(gains_topic, 10);
+    if (publish_debug_) {
+      correction_pub_ =
+          create_publisher<std_msgs::msg::Float64>(correction_topic, 10);
+      adaptive_gains_pub_ =
+          create_publisher<std_msgs::msg::Float64MultiArray>(gains_topic, 10);
+    }
 
     control_loop_ = rclcpp::create_timer(
         this, get_clock(),
@@ -130,12 +147,91 @@ public:
         kp_, ki_, kd_);
   }
 
+  ~FuzzyPidController() override {
+    writeTimingLog();
+  }
+
 private:
+  struct TimingSample {
+    uint64_t cycle;
+    double fuzzy_inference_us;
+    double state_and_dt_us;
+    double core_update_us;
+    double limiter_us;
+    double command_message_us;
+    double command_publish_us;
+    double correction_message_us;
+    double correction_publish_us;
+    double gains_message_us;
+    double gains_publish_us;
+    double controller_processing_us;
+    double full_callback_us;
+  };
+
+  void writeTimingLog() noexcept {
+    if (!measure_timing_) {
+      return;
+    }
+
+    try {
+      const std::filesystem::path log_path(timing_log_file_);
+      if (log_path.has_parent_path()) {
+        std::error_code error;
+        std::filesystem::create_directories(log_path.parent_path(), error);
+        if (error) {
+          RCLCPP_ERROR(
+              get_logger(), "Failed to create timing log directory: %s",
+              error.message().c_str());
+          return;
+        }
+      }
+
+      std::ofstream log_file(timing_log_file_, std::ios::out | std::ios::trunc);
+      if (!log_file.is_open()) {
+        RCLCPP_ERROR(
+            get_logger(), "Failed to open timing log: %s", timing_log_file_.c_str());
+        return;
+      }
+
+      log_file
+          << "cycle,publish_debug,fuzzy_inference_duration_us,"
+          << "state_and_dt_duration_us,core_update_duration_us,limiter_duration_us,"
+          << "command_message_duration_us,command_publish_duration_us,"
+          << "correction_message_duration_us,correction_publish_duration_us,"
+          << "gains_message_duration_us,gains_publish_duration_us,"
+          << "controller_processing_duration_us,full_callback_duration_us\n";
+      log_file << std::fixed << std::setprecision(6);
+      for (const auto & sample : timing_samples_) {
+        log_file
+            << sample.cycle << ','
+            << (publish_debug_ ? 1 : 0) << ','
+            << sample.fuzzy_inference_us << ','
+            << sample.state_and_dt_us << ','
+            << sample.core_update_us << ','
+            << sample.limiter_us << ','
+            << sample.command_message_us << ','
+            << sample.command_publish_us << ','
+            << sample.correction_message_us << ','
+            << sample.correction_publish_us << ','
+            << sample.gains_message_us << ','
+            << sample.gains_publish_us << ','
+            << sample.controller_processing_us << ','
+            << sample.full_callback_us << '\n';
+      }
+    } catch (const std::exception & error) {
+      RCLCPP_ERROR(get_logger(), "Failed to write timing log: %s", error.what());
+    }
+  }
+
   void controlLoop() {
     if (!has_reference_ || !has_velocity_) {
       return;
     }
-    const auto processing_start = std::chrono::steady_clock::now();
+    const auto processing_start = measure_timing_ ?
+      std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
+    const auto duration_us = [](const auto & end, const auto & start) {
+        return std::chrono::duration<double, std::micro>(end - start).count();
+      };
 
     const auto now = get_clock()->now();
     if (now.nanoseconds() == 0) {
@@ -156,10 +252,6 @@ private:
                              ? static_cast<double>(reference_.acceleration)
                              : 0.0;
 
-    // Reset state only when the vehicle has already been moving and now comes
-    // to a complete stop. This avoids resetting gains during the initial
-    // startup phase (before the first motion) which caused gains = 0 in the
-    // log.
     const bool at_standstill = std::abs(static_cast<double>(v_ref)) < 1e-3 &&
                                std::abs(measured_velocity_) < 0.05;
     if (at_standstill && has_moved_) {
@@ -172,11 +264,19 @@ private:
     }
 
     const double error = static_cast<double>(v_ref) - measured_velocity_;
+    const auto state_end = measure_timing_ ?
+      std::chrono::steady_clock::now() : processing_start;
+
+    const auto core_start = state_end;
     const double raw_correction = fuzzy_pid_->update(error, dt);
+    const auto core_end = measure_timing_ ?
+      std::chrono::steady_clock::now() : core_start;
 
     double a_correction_out, a_unlimited, a_target, jerk_out;
     limiter_->apply(a_ref, raw_correction, dt, a_correction_out, a_unlimited,
                     a_target, jerk_out);
+    const auto limiter_end = measure_timing_ ?
+      std::chrono::steady_clock::now() : core_end;
 
     // --- Publish longitudinal command ---
     car_msgs::msg::Longitudinal cmd_msg;
@@ -187,28 +287,49 @@ private:
     cmd_msg.jerk = static_cast<float>(jerk_out);
     cmd_msg.is_defined_acceleration = true;
     cmd_msg.is_defined_jerk = true;
+    const auto command_message_end = measure_timing_ ?
+      std::chrono::steady_clock::now() : limiter_end;
     longitudinal_cmd_pub_->publish(cmd_msg);
+    const auto command_publish_end = measure_timing_ ?
+      std::chrono::steady_clock::now() : command_message_end;
 
-    // --- Publish correction (debug) ---
-    std_msgs::msg::Float64 corr_msg;
-    corr_msg.data = a_correction_out;
-    correction_pub_->publish(corr_msg);
+    double correction_message_duration_us = 0.0;
+    double correction_publish_duration_us = 0.0;
+    auto processing_end = command_publish_end;
+    if (publish_debug_) {
+      // --- Publish correction (debug) ---
+      std_msgs::msg::Float64 corr_msg;
+      corr_msg.data = a_correction_out;
+      const auto correction_message_end = measure_timing_ ?
+        std::chrono::steady_clock::now() : command_publish_end;
+      correction_pub_->publish(corr_msg);
+      processing_end = measure_timing_ ?
+        std::chrono::steady_clock::now() : correction_message_end;
+      correction_message_duration_us =
+          duration_us(correction_message_end, command_publish_end);
+      correction_publish_duration_us =
+          duration_us(processing_end, correction_message_end);
+    }
 
-    const auto processing_end = std::chrono::steady_clock::now();
     const double controller_processing_duration_us =
         std::chrono::duration<double, std::micro>(processing_end -
                                                   processing_start)
             .count();
 
-    // --- Publish adaptive gains + PID terms ---
-    // [0] adaptive_kp, [1] adaptive_ki, [2] adaptive_kd,
-    // [3] error, [4] filtered_derivative,
-    // [5] p_term, [6] i_term, [7] d_term,
-    // [8] a_correction, [9] a_unlimited, [10] a_target, [11] jerk,
-    // [12] fuzzy_e, [13] fuzzy_ec,
-    // [14] fuzzy_inference_duration_us, [15] controller_processing_duration_us
-    std_msgs::msg::Float64MultiArray gains_msg;
-    gains_msg.data = {
+    const double state_and_dt_duration_us = duration_us(state_end, processing_start);
+    const double core_update_duration_us = duration_us(core_end, core_start);
+    const double limiter_duration_us = duration_us(limiter_end, core_end);
+    const double command_message_duration_us =
+        duration_us(command_message_end, limiter_end);
+    const double command_publish_duration_us =
+        duration_us(command_publish_end, command_message_end);
+    double gains_message_duration_us = 0.0;
+    double gains_publish_duration_us = 0.0;
+    if (publish_debug_) {
+      const auto gains_message_start = measure_timing_ ?
+        std::chrono::steady_clock::now() : processing_end;
+      std_msgs::msg::Float64MultiArray gains_msg;
+      gains_msg.data = {
         fuzzy_pid_->adaptive_kp(),
         fuzzy_pid_->adaptive_ki(),
         fuzzy_pid_->adaptive_kd(),
@@ -223,12 +344,38 @@ private:
         jerk_out,
         fuzzy_pid_->fuzzy_error_input(),
         fuzzy_pid_->fuzzy_error_change_input(),
-        fuzzy_pid_->fuzzy_inference_duration_us(),
-        controller_processing_duration_us,
-    };
-    adaptive_gains_pub_->publish(gains_msg);
+      };
+      const auto gains_message_end = measure_timing_ ?
+        std::chrono::steady_clock::now() : gains_message_start;
+      gains_message_duration_us = duration_us(gains_message_end, gains_message_start);
+
+      const auto gains_publish_start = gains_message_end;
+      adaptive_gains_pub_->publish(gains_msg);
+      const auto gains_publish_end = measure_timing_ ?
+        std::chrono::steady_clock::now() : gains_publish_start;
+      gains_publish_duration_us = duration_us(gains_publish_end, gains_publish_start);
+    }
 
     last_cycle_time_ = now;
+    const auto full_callback_end = measure_timing_ ?
+      std::chrono::steady_clock::now() : processing_start;
+    if (measure_timing_) {
+      timing_samples_.push_back({
+        cycle_index_++,
+        fuzzy_pid_->fuzzy_inference_duration_us(),
+        state_and_dt_duration_us,
+        core_update_duration_us,
+        limiter_duration_us,
+        command_message_duration_us,
+        command_publish_duration_us,
+        correction_message_duration_us,
+        correction_publish_duration_us,
+        gains_message_duration_us,
+        gains_publish_duration_us,
+        controller_processing_duration_us,
+        duration_us(full_callback_end, processing_start),
+      });
+    }
   }
 
   rclcpp::Subscription<car_msgs::msg::LongitudinalReference>::SharedPtr
@@ -250,8 +397,12 @@ private:
   double control_period_ms_{20.0};
   bool has_reference_{false};
   bool has_velocity_{false};
-  bool has_moved_{
-      false}; ///< True once v_ref has exceeded standstill threshold.
+  bool has_moved_{false};
+  bool publish_debug_{false};
+  bool measure_timing_{false};
+  std::string timing_log_file_;
+  std::vector<TimingSample> timing_samples_;
+  uint64_t cycle_index_{0};
 
   /// Base PID gains declared from ROS parameters and stored as member variables
   /// so they are accessible from any method in the class (e.g., logging,

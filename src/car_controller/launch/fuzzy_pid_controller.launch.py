@@ -27,6 +27,9 @@ def load_node_parameters(config_file, node_name):
 
 def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
+    publish_debug = LaunchConfiguration("publish_debug")
+    measure_timing = LaunchConfiguration("measure_timing")
+    timing_log_file = LaunchConfiguration("timing_log_file")
     vehicle_backend = LaunchConfiguration("vehicle_backend")
     scenario = LaunchConfiguration("scenario")
     random_seed = LaunchConfiguration("random_seed")
@@ -52,7 +55,15 @@ def generate_launch_description():
         executable="fuzzy_pid_controller",
         name="fuzzy_pid_controller_node",
         output="screen",
-        parameters=[fuzzy_pid_parameters, {"use_sim_time": use_sim_time}],
+        parameters=[
+            fuzzy_pid_parameters,
+            {
+                "use_sim_time": use_sim_time,
+                "publish_debug": publish_debug,
+                "measure_timing": measure_timing,
+                "timing_log_file": timing_log_file,
+            },
+        ],
     )
 
     velocity_logger_node = Node(
@@ -92,6 +103,25 @@ def generate_launch_description():
             "use_sim_time",
             default_value="false",
             description="Use the ROS /clock topic instead of the system clock",
+        ),
+        DeclareLaunchArgument(
+            "publish_debug",
+            default_value=str(
+                fuzzy_pid_parameters.get("publish_debug", False)
+            ).lower(),
+            description="Publish correction and adaptive-gain debug topics",
+        ),
+        DeclareLaunchArgument(
+            "measure_timing",
+            default_value=str(
+                fuzzy_pid_parameters.get("measure_timing", False)
+            ).lower(),
+            description="Record internal controller timing to a separate CSV",
+        ),
+        DeclareLaunchArgument(
+            "timing_log_file",
+            default_value=str(workspace_root / "logs" / "fuzzy_pid_internal_timing.csv"),
+            description="Internal controller timing CSV path",
         ),
         fuzzy_pid_controller_node,
         velocity_logger_node

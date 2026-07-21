@@ -11,7 +11,7 @@
 //   /control/trajectory_follower/acceleration_correction (std_msgs/Float64)
 //   /control/fuzzy_pid/adaptive_gains    (std_msgs/Float64MultiArray) – optional
 //
-// CSV columns (new schema v2):
+// CSV columns (schema v3; controller timing is logged separately):
 //   time_sec, sim_step, scenario, seed, controller,
 //   target_velocity_mps, reference_acceleration_mps2,
 //   true_velocity_mps, measured_velocity_mps,
@@ -26,7 +26,6 @@
 //   fuzzy_error_e_mps, fuzzy_error_change_ec_mps2,
 //   fuzzy_normalized_error_e, fuzzy_normalized_error_change_ec,
 //   p_term_mps2, i_term_mps2, d_term_mps2,
-//   fuzzy_inference_duration_us, controller_processing_duration_us,
 //   correction_saturated
 
 #include <array>
@@ -192,10 +191,6 @@ public:
             fuzzy_normalized_error_e_ = msg->data[12];
             fuzzy_normalized_error_change_ec_ = msg->data[13];
           }
-          if (msg->data.size() >= 16) {
-            fuzzy_inference_duration_us_ = msg->data[14];
-            controller_processing_duration_us_ = msg->data[15];
-          }
           has_gains_ = true;
         });
     }
@@ -206,7 +201,7 @@ public:
       rclcpp::Duration(std::chrono::duration_cast<std::chrono::nanoseconds>(period)),
       std::bind(&VelocityLogger::writeSample, this));
 
-    RCLCPP_INFO(get_logger(), "Logging to %s (schema v2)", log_file_path_.c_str());
+    RCLCPP_INFO(get_logger(), "Logging to %s (schema v3)", log_file_path_.c_str());
   }
 
   ~VelocityLogger() override
@@ -236,7 +231,6 @@ private:
       "fuzzy_error_e_mps,fuzzy_error_change_ec_mps2,"
       "fuzzy_normalized_error_e,fuzzy_normalized_error_change_ec,"
       "p_term_mps2,i_term_mps2,d_term_mps2,"
-      "fuzzy_inference_duration_us,controller_processing_duration_us,"
       "correction_saturated\n";
   }
 
@@ -295,8 +289,6 @@ private:
       << p_term_ << ','
       << i_term_ << ','
       << d_term_ << ','
-      << fuzzy_inference_duration_us_ << ','
-      << controller_processing_duration_us_ << ','
       << (saturated ? 1 : 0)
       << '\n';
   }
@@ -346,7 +338,6 @@ private:
   double fuzzy_error_e_{0.0}, fuzzy_error_change_ec_{0.0};
   double fuzzy_normalized_error_e_{0.0}, fuzzy_normalized_error_change_ec_{0.0};
   double p_term_{0.0}, i_term_{0.0}, d_term_{0.0};
-  double fuzzy_inference_duration_us_{0.0}, controller_processing_duration_us_{0.0};
 
   bool has_true_velocity_{false};
   bool has_measured_velocity_{false};

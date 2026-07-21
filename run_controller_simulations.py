@@ -18,6 +18,7 @@ WORKSPACE = Path(__file__).resolve().parent
 SETUP_FILE = WORKSPACE / "install" / "setup.bash"
 
 LOG_DIR = WORKSPACE / "logs"
+FUZZY_TIMING_LOG = LOG_DIR / "fuzzy_pid_internal_timing.csv"
 CONTROLLERS = (
     (
         "Fuzzy PID",
@@ -144,6 +145,8 @@ def run_simulation(
     real_timeout: float,
     vehicle_model: str,
     gazebo_gui: str,
+    publish_debug: str,
+    measure_timing: str,
 ) -> None:
     processes: list[subprocess.Popen[bytes]] = []
     print(
@@ -173,6 +176,8 @@ def run_simulation(
             f"scenario_file:={shlex.quote(str(scenario_file))} "
             f"random_seed:={seed} "
             f"vehicle_model:={vehicle_model} "
+            f"publish_debug:={publish_debug} "
+            f"measure_timing:={measure_timing} "
             f"gazebo_gui:={gazebo_gui}"
         )
         simulation = start_launch(command)
@@ -218,6 +223,23 @@ def parse_args() -> argparse.Namespace:
         choices=("true", "false"),
         default="true",
         help="Whether to open the Gazebo GUI (default: true)",
+    )
+    parser.add_argument(
+        "--publish-debug",
+        choices=("true", "false"),
+        default="false",
+        help=(
+            "Publish controller debug topics (default: false)"
+        ),
+    )
+    parser.add_argument(
+        "--measure-timing",
+        choices=("true", "false"),
+        default="true",
+        help=(
+            "Record Fuzzy PID timing internally and archive a separate CSV "
+            "(default: true)"
+        ),
     )
     parser.add_argument(
         "--scenario",
@@ -296,6 +318,8 @@ def main() -> int:
             )
             for name, controller, log_path in CONTROLLERS:
                 log_path.unlink(missing_ok=True)
+                if controller == "fuzzy_pid":
+                    FUZZY_TIMING_LOG.unlink(missing_ok=True)
                 run_simulation(
                     name,
                     controller,
@@ -307,10 +331,21 @@ def main() -> int:
                     args.real_timeout,
                     args.vehicle_model,
                     args.gazebo_gui,
+                    args.publish_debug,
+                    args.measure_timing,
                 )
                 archived_logs.append(
                     archive_log(log_path, args.vehicle_model, args.scenario, seed)
                 )
+                if controller == "fuzzy_pid" and args.measure_timing == "true":
+                    archived_logs.append(
+                        archive_log(
+                            FUZZY_TIMING_LOG,
+                            args.vehicle_model,
+                            args.scenario,
+                            seed,
+                        )
+                    )
     except KeyboardInterrupt:
         print("\nCancelled by user.", file=sys.stderr)
         return 130
