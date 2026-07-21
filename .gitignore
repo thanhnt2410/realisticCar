@@ -7,6 +7,7 @@
 /logs/**/*.csv
 /logs/**/*.png
 /logs/ros/
+/logs/performance_baseline/
 
 # Python caches and tooling
 __pycache__/
